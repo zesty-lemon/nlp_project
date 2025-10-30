@@ -34,6 +34,7 @@ def get_episode_list_from_directory(path: str) -> list[str]:
 
 # join all turns of dialog into one paragraph of unified text
 def get_and_combine_all_dialog_turns(dialog_id: str, dialog) -> str:
+    # a turn of dialog is 1 person speaking.  I.E "it's Giles turn to speak"
     dialog_turns = []  # all turns of dialog (2-7 turns, depending on lookahead)
     dialog_keys = []
     # get the keys corresponding to dialog turns only
@@ -71,7 +72,9 @@ def get_all_dialogs_from_episode_df(episode_dialogs):
 all_episode_filepaths = get_episodes_for_dt_and_season(dialog_turns=5, season_num=1)
 
 for episode_filepath in all_episode_filepaths:
+    # open filepath to episode as Json object (dictionary)
     episode_dialogs = open_file_as_json(episode_filepath)
+    # pull all dialogs out from the episode, stored as a dataframe. Dialog is all turns added together
     df_dialogs = get_all_dialogs_from_episode_df(episode_dialogs)
     print(df_dialogs.head())
 
