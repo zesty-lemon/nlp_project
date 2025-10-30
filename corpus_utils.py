@@ -14,6 +14,7 @@ def open_file_as_json(file_path: str):
         data = json.load(f)
         return data
 
+
 # get full filepaths for all episode data for a given number of turns and season
 # returns full filepaths for all episode in a given season as a list
 def get_episodes_for_dt_and_season(dialog_turns: int, season_num: int) -> list[str]:
@@ -55,13 +56,13 @@ def get_all_dialogs_from_episode_df(episode_dialogs):
     for dialog_id, dialog in episode_dialogs.items():
 
         full_dialog = get_and_combine_all_dialog_turns(dialog_id, dialog)
-
+        # pull specific top level metadata fields out of each dialog object
         dialogs.append(
             {
                 "Dialog_ID": dialog_id, # numerical identifier.  Sequential, counts up as episode progresses
                 "Full_Dialog": full_dialog, # combined dialog from all turns for given scene
                 "Scene": dialog.get("Scene"), # setting for the secene ("the stairwell"
-                "Participants": dialog.get("Participant"), # who is involved in dialog
+                "Participants": dialog.get("Participant"), # who is involved in dialog.  Array
                 "AV_ID": dialog.get("AV_ID"), # the episode & season number
             }
         )
