@@ -74,32 +74,32 @@ def get_all_dialogs_from_episode_df(episode_dialogs):
     # loop through each dialog (top level of JSON)
     for dialog_id, dialog in episode_dialogs.items():
 
-        full_dialog = get_and_combine_all_dialog_turns(dialog_id, dialog)
+        full_conversation = create_convo_from_dialog(dialog_id, dialog)
         # pull specific top level metadata fields out of each dialog object
         dialogs.append(
             {
-                "Dialog_ID": dialog_id, # numerical identifier.  Sequential, counts up as episode progresses
-                "Full_Dialog": full_dialog, # combined dialog from all turns for given scene
-                "Scene": dialog.get("Scene"), # setting for the secene ("the stairwell"
-                "Participants": dialog.get("Participant"), # who is involved in dialog.  Array
-                "AV_ID": dialog.get("AV_ID"), # the episode & season number,
                 "GT": dialog.get("GT"),  # the ground truth
+                "Full_Conversation": full_conversation # combined dialog from all turns for given scene
             }
         )
 
     df_dialogs = pd.DataFrame(dialogs)
     return df_dialogs
 
-#
-# def get_ground_truth_
 
-all_episode_filepaths = get_episodes_for_dt_and_season(dialog_turns=5, season_num=1)
+def main():
+    all_episode_filepaths = get_episodes_for_dt_and_season(dialog_turns=5, season_num=1)
 
-for episode_filepath in all_episode_filepaths:
-    # open filepath to episode as Json object (dictionary)
-    episode_dialogs = open_file_as_json(episode_filepath)
-    # pull all dialogs out from the episode, stored as a dataframe. Dialog is all turns added together
-    df_dialogs = get_all_dialogs_from_episode_df(episode_dialogs)
-    print(df_dialogs.head())
+    for episode_filepath in all_episode_filepaths:
+        # open filepath to episode as Json object (dictionary)
+        episode_dialogs = open_file_as_json(episode_filepath)
+        # pull all dialogs out from the episode, stored as a dataframe. Dialog is all turns added together
+        df_dialogs = get_all_dialogs_from_episode_df(episode_dialogs)
+        print(df_dialogs.head())
 
-print("done")
+    # Access first sentence of first conversation
+    print(df_dialogs["Full_Conversation"][0][0])
+    print("done")
+
+if __name__ == "__main__":
+    main()
