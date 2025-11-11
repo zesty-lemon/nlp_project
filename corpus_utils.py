@@ -6,6 +6,7 @@ import json
 import os
 import constants as c
 import pandas as pd
+import csv
 
 
 # open json file at filepath as json object
@@ -50,6 +51,24 @@ def get_and_combine_all_dialog_turns(dialog_id: str, dialog) -> str:
     full_dialog = " ".join(dialog_turns)
     return full_dialog
 
+
+# Similar to get_and_combine_all_dialog_turns() but leaves them as a list representing a convo
+def create_convo_from_dialog(dialog_id: str, dialog) -> str:
+    # a turn of dialog is 1 person speaking.  I.E "it's Giles turn to speak"
+    conversation = []
+    dialog_keys = []
+    # get the keys corresponding to dialog turns only
+    for k, v in dialog.items():
+        if k.startswith("Dialog Turns"):
+            dialog_keys.append(k)
+    dialog_keys.sort()
+    # for every turn of dialog (in order, since they are sorted), append the text corresponding to the dialog
+    for k in dialog_keys:
+        conversation.append(dialog[k]["Dialog"])
+
+    return conversation
+
+
 def get_all_dialogs_from_episode_df(episode_dialogs):
     dialogs = []
     # loop through each dialog (top level of JSON)
@@ -63,12 +82,16 @@ def get_all_dialogs_from_episode_df(episode_dialogs):
                 "Full_Dialog": full_dialog, # combined dialog from all turns for given scene
                 "Scene": dialog.get("Scene"), # setting for the secene ("the stairwell"
                 "Participants": dialog.get("Participant"), # who is involved in dialog.  Array
-                "AV_ID": dialog.get("AV_ID"), # the episode & season number
+                "AV_ID": dialog.get("AV_ID"), # the episode & season number,
+                "GT": dialog.get("GT"),  # the ground truth
             }
         )
 
     df_dialogs = pd.DataFrame(dialogs)
     return df_dialogs
+
+#
+# def get_ground_truth_
 
 all_episode_filepaths = get_episodes_for_dt_and_season(dialog_turns=5, season_num=1)
 
