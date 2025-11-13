@@ -19,8 +19,7 @@ def main():
             # pull all dialogs out from the episode, stored as a dataframe. Dialog is all turns added together
             df_dialogs = c_u.get_all_dialogs_from_episode_df(episode_dialogs)
             all_dialogs.append(df_dialogs)
-
-            # Sanity check to see correct number of dialogs per episode
+            # sanity check to see correct number of dialogs per episode
             print("Dialogs per episode:")
             print(f"{episode_filepath}: {len(df_dialogs)} dialogs")
 
