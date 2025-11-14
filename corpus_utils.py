@@ -31,7 +31,7 @@ def get_episode_list_from_directory(path: str) -> list[str]:
         full_path = os.path.join(path, entry)
         if os.path.isfile(full_path):
             files.append(full_path)
-    files.sort()  # because file names are consistantly "The Big bang_S0X0X" it is safe to do this
+    files.sort()  # because file names are consistently "The Big bang_S0X0X" it is safe to do this
     return files
 
 
