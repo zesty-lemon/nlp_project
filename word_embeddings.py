@@ -106,5 +106,9 @@ if __name__ == "__main__":
     else:
         # Code for PCA. TODO: Need to fix this to reflect actual file type.
         with open(c.SAVED_EMBEDDINGS_DIR, "r") as infile:
+            full_corpus_df = get_everything()
+            gt_labels_list = full_corpus_df["GT"].astype(str).tolist()
+
             bert_vectors = infile.read()
-            primary_components = perform_pca(bert_vectors, c.NUM_PRIMARY_COMPONENTS)
+            pca = perform_pca(bert_vectors, c.NUM_PRIMARY_COMPONENTS)
+            plot_2d_pca(pca, gt_labels_list)
