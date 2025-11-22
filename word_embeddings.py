@@ -28,13 +28,13 @@ def get_embedding(text):
 def perform_bert_embedding(dialogs: list[str]) -> list[np.ndarray]:
     embeddings = []
 
-    for poem in tqdm(
+    for dialog_index in tqdm(
         range(0, len(dialogs)),
         desc="Performing BERT Embedding",
-        unit="poem",
+        unit=" dialogs",
         colour="blue",
     ):
-        bert_embedding = get_embedding(dialogs[poem])
+        bert_embedding = get_embedding(dialogs[dialog_index])
         embeddings.append(bert_embedding)
 
     return embeddings
@@ -69,9 +69,11 @@ def plot_2d_pca(bert_pca_primary,
 
     plt.figure(figsize=(8, 6))
     plt.scatter(humorous_pca_x, humorous_pca_y, s=40, c='b', label="Humorous Dialogs")
+    plt.scatter(non_humorous_pca_x, non_humorous_pca_y, s=40, c='r', label="Non-Humorous Dialogs")
     plt.title("Big Bang Theory Humorous and Non-Humorous Dialogs\n Principle Component Analysis", fontsize=14)
     plt.xlabel("Principal Component 1", fontsize=14)
     plt.ylabel("Principal Component 2", fontsize=14)
+    plt.legend()
     plt.show()
 
 
@@ -88,8 +90,9 @@ def driver():
     print(f"Len of embeddings: {len(embeddings)}")
 
     # PCA + Graph embeddgiuns
-
-    #
+    pca = perform_pca(embeddings)
+    gt_labels_list = full_corpus_df["GT"].astype(str).tolist()
+    plot_2d_pca(pca, gt_labels_list)
 
 
 if __name__ == "__main__":

@@ -56,23 +56,8 @@ def get_and_combine_all_dialog_turns(dialog_id: str, dialog) -> str:
     return conversation
 
 
-# Similar to get_and_combine_all_dialog_turns() but leaves them as a list representing a convo
-def create_convo_from_dialog(dialog_id: str, dialog) -> str:
-    # a turn of dialog is 1 person speaking.  I.E "it's Giles turn to speak"
-    conversation = ""
-    dialog_keys = []
-    # get the keys corresponding to dialog turns only
-    for k, v in dialog.items():
-        if k.startswith("Dialog Turns"):
-            dialog_keys.append(k)
-    dialog_keys.sort()
-    # for every turn of dialog (in order, since they are sorted), append the text corresponding to the dialog
-    for k in dialog_keys:
-        conversation.append(dialog[k]["Dialog"])
-
-    return conversation
-
-
+# get all dialogs from episode stored as a dataframe
+# ground truth label is preserved, all turns of dialogs are appended together
 def get_all_dialogs_from_episode_df(episode_dialogs):
     dialogs = []
     # loop through each dialog (top level of JSON)

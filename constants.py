@@ -9,3 +9,7 @@ NUM_DIALOG_TURNS = 5
 
 # Can theoretically change this to be [SEP] or something different
 SEPARATOR = "<s>"
+
+# ground truth labels: Humour = 1, Non-Humour = 0
+GT_HUMOUR = 1
+GT_NON_HUMOUR = 0
