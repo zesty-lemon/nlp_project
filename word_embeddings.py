@@ -86,6 +86,51 @@ def plot_2d_pca(bert_pca_primary, ground_truth_list: list[int]):
     plt.show()
 
 
+# plot 2d representation of bert embeddings
+def plot_3d_pca(bert_pca_primary, ground_truth_list: list[int]):
+
+    humorous_pca_x = []
+    humorous_pca_y = []
+    humorous_pca_z = []
+
+    non_humorous_pca_x = []
+    non_humorous_pca_y = []
+    non_humorous_pca_z = []
+
+    # split the PCA into humorous and non-humorous sections (for matplotlib labels)
+    for i in range(0, len(ground_truth_list)):
+        if ground_truth_list[i] == c.GT_HUMOUR:
+            humorous_pca_x.append(bert_pca_primary[i, 0])
+            humorous_pca_y.append(bert_pca_primary[i, 1])
+            humorous_pca_z.append(bert_pca_primary[i, 2])
+
+        elif ground_truth_list[i] == c.GT_NON_HUMOUR:
+            non_humorous_pca_x.append(bert_pca_primary[i, 0])
+            non_humorous_pca_y.append(bert_pca_primary[i, 1])
+            non_humorous_pca_z.append(bert_pca_primary[i, 2])
+
+    fig = plt.figure(figsize=(10,8))
+    ax = fig.add_subplot(111, projection='3d')
+    ax.scatter(humorous_pca_x, humorous_pca_y, humorous_pca_z, s=30, c="b", label="Humorous Dialogs")
+    ax.scatter(
+        non_humorous_pca_x,
+        non_humorous_pca_y,
+        non_humorous_pca_z,
+        s=30,
+        c="r",
+        label="Non-Humorous Dialogs"
+    )
+    ax.set_title(
+        "Big Bang Theory Humorous and Non-Humorous Dialogs\n Principle Component Analysis",
+        fontsize=14,
+    )
+    ax.set_xlabel("Principal Component 1", fontsize=14)
+    ax.set_ylabel("Principal Component 2", fontsize=14)
+    ax.set_zlabel("Principal Component 3", fontsize=14)
+    ax.legend()
+    plt.show()
+
+
 def driver():
     print("Starting")
 
@@ -101,23 +146,28 @@ def driver():
     # Save to a file
     np.save(c.SAVED_EMBEDDINGS_DIR, embeddings)
 
-    # PCA + Graph embeddgiuns
+    # PCA + Graph embeddgiuns (2d and 3d)
     pca = perform_pca(embeddings)
+    pca_3d = perform_pca(embeddings, num_components=3)
+
     print(f"Len pca embeddings: {len(pca)}")
 
     gt_labels_list = full_corpus_df["GT"].astype(int).tolist()
     plot_2d_pca(pca, gt_labels_list)
+    plot_3d_pca(pca_3d,gt_labels_list)
 
 
 def run_already_saved():
     # Code for PCA
     with open(c.SAVED_EMBEDDINGS_DIR, "r") as infile:
-        bert_vectors = np.load(infile)
-        primary_components = perform_pca(bert_vectors, c.NUM_PRIMARY_COMPONENTS)
+        embeddings = np.load(infile)
+        pca = perform_pca(embeddings, c.NUM_PRIMARY_COMPONENTS)
+        pca_3d = perform_pca(embeddings, num_components=3)
+
         full_corpus_df = get_everything()
         gt_labels_list = full_corpus_df["GT"].astype(int).tolist()
-        plot_2d_pca(primary_components, gt_labels_list)
-
+        plot_2d_pca(pca, gt_labels_list)
+        pca_3d = perform_pca(embeddings, num_components=3)
 
 if __name__ == "__main__":
 
