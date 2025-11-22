@@ -2,6 +2,7 @@ import numpy as np
 import torch
 import os
 import constants as c
+from matplotlib import pyplot as plt
 from sklearn.decomposition import PCA
 from tqdm import tqdm
 from transformers import BertModel, BertTokenizer
@@ -46,6 +47,35 @@ def perform_pca(bert_vectors: list[np.ndarray], num_components=2) -> np.ndarray:
     pca = PCA(n_components=num_components)
     bert_pca = pca.fit_transform(arr_bert_vectors)
     return bert_pca
+
+
+# plot 2d representation of bert embeddings
+def plot_2d_pca(bert_pca_primary, ground_truth_list: list[str]):
+
+    humorous_pca_x = []
+    humorous_pca_y = []
+
+    non_humorous_pca_x = []
+    non_humorous_pca_y = []
+
+    # split the PCA into humorous and non-humorous sections (for matplotlib labels)
+    for i in range(0, len(ground_truth_list)):
+        if ground_truth_list[i] == c.GT_HUMOUR:
+            humorous_pca_x.append(bert_pca_primary[i, 0])
+            humorous_pca_y.append(bert_pca_primary[i, 1])
+        elif ground_truth_list[i] == c.GT_NON_HUMOUR:
+            non_humorous_pca_x.append(bert_pca_primary[i, 0])
+            non_humorous_pca_y.append(bert_pca_primary[i, 1])
+
+    plt.figure(figsize=(8, 6))
+    plt.scatter(humorous_pca_x, humorous_pca_y, s=40, c="b", label="Humorous Dialogs")
+    plt.title(
+        "Big Bang Theory Humorous and Non-Humorous Dialogs\n Principle Component Analysis",
+        fontsize=14,
+    )
+    plt.xlabel("Principal Component 1", fontsize=14)
+    plt.ylabel("Principal Component 2", fontsize=14)
+    plt.show()
 
 
 def driver():
