@@ -92,6 +92,28 @@ def get_all_dialogs_from_episode_df(episode_dialogs):
     return df_dialogs
 
 
+def get_everything():
+
+    full_corpus_df = pd.DataFrame()
+
+    for season in range(1, c.NUM_SEASONS + 1):
+
+        all_episode_filepaths = get_episodes_for_dt_and_season(
+            dialog_turns=c.NUM_DIALOG_TURNS, season_num=season
+        )
+
+        for episode_filepath in all_episode_filepaths:
+            # open filepath to episode as Json object (dictionary)
+            episode_dialogs = open_file_as_json(episode_filepath)
+            # pull all dialogs out from the episode, stored as a dataframe. Dialog is all turns added together
+            df_dialogs = get_all_dialogs_from_episode_df(episode_dialogs)
+
+            # Concat dataframe to overall show dataframe
+            pd.concat([full_corpus_df, df_dialogs], axis=0)
+
+    print(full_corpus_df.head())
+
+
 def main():
     all_episode_filepaths = get_episodes_for_dt_and_season(dialog_turns=5, season_num=1)
 
@@ -108,4 +130,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    get_everything()
