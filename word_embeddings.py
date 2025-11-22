@@ -90,21 +90,24 @@ def driver():
     embeddings = perform_bert_embedding(dialog_list)
     print(f"Len of embeddings: {len(embeddings)}")
 
-    # Save
+    # Save to a file
+    np.save(c.SAVED_EMBEDDINGS_DIR, embeddings)
 
-    # PCA + Graph embeddgiuns
+    # PCA
+    pca_embeddings = perform_pca(embeddings, c.NUM_PRIMARY_COMPONENTS)
+    print(f"Len pca embeddings: {len(pca_embeddings)}")
 
-    #
+    # Graph embeddings
 
 
 if __name__ == "__main__":
 
     # Check if embeddings have already been created and then graph
     if os.path.exists(c.SAVED_EMBEDDINGS_DIR):
-        driver()
-
-    else:
         # Code for PCA. TODO: Need to fix this to reflect actual file type.
         with open(c.SAVED_EMBEDDINGS_DIR, "r") as infile:
             bert_vectors = infile.read()
             primary_components = perform_pca(bert_vectors, c.NUM_PRIMARY_COMPONENTS)
+
+    else:
+        driver()
