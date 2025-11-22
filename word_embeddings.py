@@ -111,7 +111,7 @@ def driver():
 
 def run_already_saved():
     # Code for PCA
-    with open(c.SAVED_EMBEDDINGS_DIR, "r") as infile:
+    with open(c.SAVED_EMBEDDINGS_DIR, "rb") as infile:
         bert_vectors = np.load(infile)
         primary_components = perform_pca(bert_vectors, c.NUM_PRIMARY_COMPONENTS)
         full_corpus_df = get_everything()
