@@ -2,10 +2,12 @@
 Reusable Constants File
 """
 
+from pathlib import Path
+
 # File Operations
-BIG_BANG_THEORY_DIR = "data/big_bang_theory"
+BIG_BANG_THEORY_DIR = Path("data/big_bang_theory")
 NUM_SEASONS = 5
-SAVED_EMBEDDINGS_DIR = "output//embeddings.txt"
+SAVED_EMBEDDINGS_DIR = Path("output/embeddings.npy")
 
 # Runtime Parameters
 NUM_DIALOG_TURNS = 5
