@@ -1,8 +1,11 @@
+import matplotlib
 import numpy as np
 import torch
 import os
 import constants as c
+import matplotlib
 from matplotlib import pyplot as plt
+# matplotlib.use("Qt5Agg") # uncomment to pop charts out into seperate window on mac
 from sklearn.decomposition import PCA
 from tqdm import tqdm
 from transformers import BertModel, BertTokenizer
@@ -68,11 +71,11 @@ def plot_2d_pca(bert_pca_primary, ground_truth_list: list[int]):
             non_humorous_pca_y.append(bert_pca_primary[i, 1])
 
     plt.figure(figsize=(8, 6))
-    plt.scatter(humorous_pca_x, humorous_pca_y, s=40, c="b", label="Humorous Dialogs")
+    plt.scatter(humorous_pca_x, humorous_pca_y, s=5, c="b", label="Humorous Dialogs")
     plt.scatter(
         non_humorous_pca_x,
         non_humorous_pca_y,
-        s=40,
+        s=5,
         c="r",
         label="Non-Humorous Dialogs",
     )
@@ -111,12 +114,13 @@ def plot_3d_pca(bert_pca_primary, ground_truth_list: list[int]):
 
     fig = plt.figure(figsize=(10,8))
     ax = fig.add_subplot(111, projection='3d')
-    ax.scatter(humorous_pca_x, humorous_pca_y, humorous_pca_z, s=30, c="b", label="Humorous Dialogs")
+    ax.scatter(humorous_pca_x, humorous_pca_y, humorous_pca_z, s=5, linewidths=0, edgecolors='none', c="b",
+               label="Humorous Dialogs")
     ax.scatter(
         non_humorous_pca_x,
         non_humorous_pca_y,
         non_humorous_pca_z,
-        s=30,
+        s=3, linewidths=0, edgecolors='none',
         c="r",
         label="Non-Humorous Dialogs"
     )
