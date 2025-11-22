@@ -68,9 +68,18 @@ def plot_2d_pca(bert_pca_primary, ground_truth_list: list[int]):
             non_humorous_pca_y.append(bert_pca_primary[i, 1])
 
     plt.figure(figsize=(8, 6))
-    plt.scatter(humorous_pca_x, humorous_pca_y, s=40, c='b', label="Humorous Dialogs")
-    plt.scatter(non_humorous_pca_x, non_humorous_pca_y, s=40, c='r', label="Non-Humorous Dialogs")
-    plt.title("Big Bang Theory Humorous and Non-Humorous Dialogs\n Principle Component Analysis", fontsize=14)
+    plt.scatter(humorous_pca_x, humorous_pca_y, s=40, c="b", label="Humorous Dialogs")
+    plt.scatter(
+        non_humorous_pca_x,
+        non_humorous_pca_y,
+        s=40,
+        c="r",
+        label="Non-Humorous Dialogs",
+    )
+    plt.title(
+        "Big Bang Theory Humorous and Non-Humorous Dialogs\n Principle Component Analysis",
+        fontsize=14,
+    )
     plt.xlabel("Principal Component 1", fontsize=14)
     plt.ylabel("Principal Component 2", fontsize=14)
     plt.legend()
@@ -100,17 +109,21 @@ def driver():
     plot_2d_pca(pca, gt_labels_list)
 
 
+def run_already_saved():
+    # Code for PCA
+    with open(c.SAVED_EMBEDDINGS_DIR, "r") as infile:
+        bert_vectors = np.load(infile)
+        primary_components = perform_pca(bert_vectors, c.NUM_PRIMARY_COMPONENTS)
+        full_corpus_df = get_everything()
+        gt_labels_list = full_corpus_df["GT"].astype(int).tolist()
+        plot_2d_pca(primary_components, gt_labels_list)
+
+
 if __name__ == "__main__":
 
-    # Check if embeddings have already been created and then graph
-    if os.path.exists(c.SAVED_EMBEDDINGS_DIR):
-        # Code for PCA. TODO: Need to fix this to reflect actual file type.
-        with open(c.SAVED_EMBEDDINGS_DIR, "r") as infile:
-            bert_vectors = infile.read()
-            primary_components = perform_pca(bert_vectors, c.NUM_PRIMARY_COMPONENTS)
-            full_corpus_df = get_everything()
-            gt_labels_list = full_corpus_df["GT"].astype(int).tolist()
-            plot_2d_pca(primary_components, gt_labels_list)
+    # Check if the embeddings file has data saved to it
+    if os.stat(c.SAVED_EMBEDDINGS_DIR).st_size == 0:
+        driver()
 
     else:
-        driver()
+        run_already_saved()
