@@ -68,7 +68,7 @@ def get_all_dialogs_from_episode_df(episode_dialogs):
         # pull specific top level metadata fields out of each dialog object
         dialogs.append(
             {
-                "GT": dialog.get("GT"),  # the ground truth
+                "GT": int(dialog.get("GT")),  # the ground truth
                 "Full_Conversation": full_conversation,  # combined dialog from all turns for given scene
             }
         )

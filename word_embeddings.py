@@ -50,7 +50,7 @@ def perform_pca(bert_vectors: list[np.ndarray], num_components=2) -> np.ndarray:
 
 
 # plot 2d representation of bert embeddings
-def plot_2d_pca(bert_pca_primary, ground_truth_list: list[str]):
+def plot_2d_pca(bert_pca_primary, ground_truth_list: list[int]):
 
     humorous_pca_x = []
     humorous_pca_y = []
