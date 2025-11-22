@@ -1,5 +1,7 @@
 import numpy as np
 import torch
+import os
+import constants as c
 from sklearn.decomposition import PCA
 from tqdm import tqdm
 from transformers import BertModel, BertTokenizer
@@ -58,10 +60,21 @@ def driver():
     embeddings = perform_bert_embedding(dialog_list)
     print(f"Len of embeddings: {len(embeddings)}")
 
+    # Save
+
     # PCA + Graph embeddgiuns
 
     #
 
 
 if __name__ == "__main__":
-    driver()
+
+    # Check if embeddings have already been created and then graph
+    if os.path.exists(c.SAVED_EMBEDDINGS_DIR):
+        driver()
+
+    else:
+        # Code for PCA. TODO: Need to fix this to reflect actual file type.
+        with open(c.SAVED_EMBEDDINGS_DIR, "r") as infile:
+            bert_vectors = infile.read()
+            primary_components = perform_pca(bert_vectors, c.NUM_PRIMARY_COMPONENTS)
