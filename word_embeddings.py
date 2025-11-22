@@ -101,14 +101,16 @@ if __name__ == "__main__":
 
     # Check if embeddings have already been created and then graph
     if os.path.exists(c.SAVED_EMBEDDINGS_DIR):
-        driver()
-
-    else:
         # Code for PCA. TODO: Need to fix this to reflect actual file type.
         with open(c.SAVED_EMBEDDINGS_DIR, "r") as infile:
+            bert_vectors = infile.read()
+            primary_components = perform_pca(bert_vectors, c.NUM_PRIMARY_COMPONENTS)
             full_corpus_df = get_everything()
             gt_labels_list = full_corpus_df["GT"].astype(str).tolist()
 
             bert_vectors = infile.read()
             pca = perform_pca(bert_vectors, c.NUM_PRIMARY_COMPONENTS)
             plot_2d_pca(pca, gt_labels_list)
+
+    else:
+        driver()
