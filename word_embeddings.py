@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+import os
 import constants as c
 from matplotlib import pyplot as plt
 from sklearn.decomposition import PCA
@@ -49,8 +50,7 @@ def perform_pca(bert_vectors: list[np.ndarray], num_components=2) -> np.ndarray:
 
 
 # plot 2d representation of bert embeddings
-def plot_2d_pca(bert_pca_primary,
-                ground_truth_list: list[str]):
+def plot_2d_pca(bert_pca_primary, ground_truth_list: list[str]):
 
     humorous_pca_x = []
     humorous_pca_y = []
@@ -89,6 +89,8 @@ def driver():
     embeddings = perform_bert_embedding(dialog_list)
     print(f"Len of embeddings: {len(embeddings)}")
 
+    # Save
+
     # PCA + Graph embeddgiuns
     pca = perform_pca(embeddings)
     gt_labels_list = full_corpus_df["GT"].astype(str).tolist()
@@ -96,4 +98,13 @@ def driver():
 
 
 if __name__ == "__main__":
-    driver()
+
+    # Check if embeddings have already been created and then graph
+    if os.path.exists(c.SAVED_EMBEDDINGS_DIR):
+        driver()
+
+    else:
+        # Code for PCA. TODO: Need to fix this to reflect actual file type.
+        with open(c.SAVED_EMBEDDINGS_DIR, "r") as infile:
+            bert_vectors = infile.read()
+            primary_components = perform_pca(bert_vectors, c.NUM_PRIMARY_COMPONENTS)
