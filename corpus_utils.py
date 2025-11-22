@@ -109,7 +109,7 @@ def get_everything():
             df_dialogs = get_all_dialogs_from_episode_df(episode_dialogs)
 
             # Concat dataframe to overall show dataframe
-            pd.concat([full_corpus_df, df_dialogs], axis=0)
+            full_corpus_df = pd.concat([full_corpus_df, df_dialogs], axis=0)
 
     print(full_corpus_df.head())
 
