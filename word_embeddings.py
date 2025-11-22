@@ -89,10 +89,13 @@ def driver():
     embeddings = perform_bert_embedding(dialog_list)
     print(f"Len of embeddings: {len(embeddings)}")
 
-    # Save
+    # Save to a file
+    np.save(c.SAVED_EMBEDDINGS_DIR, embeddings)
 
     # PCA + Graph embeddgiuns
     pca = perform_pca(embeddings)
+    print(f"Len pca embeddings: {len(pca)}")
+
     gt_labels_list = full_corpus_df["GT"].astype(str).tolist()
     plot_2d_pca(pca, gt_labels_list)
 
