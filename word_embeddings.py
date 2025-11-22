@@ -96,7 +96,7 @@ def driver():
     pca = perform_pca(embeddings)
     print(f"Len pca embeddings: {len(pca)}")
 
-    gt_labels_list = full_corpus_df["GT"].astype(str).tolist()
+    gt_labels_list = full_corpus_df["GT"].astype(int).tolist()
     plot_2d_pca(pca, gt_labels_list)
 
 
@@ -109,11 +109,8 @@ if __name__ == "__main__":
             bert_vectors = infile.read()
             primary_components = perform_pca(bert_vectors, c.NUM_PRIMARY_COMPONENTS)
             full_corpus_df = get_everything()
-            gt_labels_list = full_corpus_df["GT"].astype(str).tolist()
-
-            bert_vectors = infile.read()
-            pca = perform_pca(bert_vectors, c.NUM_PRIMARY_COMPONENTS)
-            plot_2d_pca(pca, gt_labels_list)
+            gt_labels_list = full_corpus_df["GT"].astype(int).tolist()
+            plot_2d_pca(primary_components, gt_labels_list)
 
     else:
         driver()
