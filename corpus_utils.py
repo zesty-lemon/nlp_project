@@ -92,7 +92,7 @@ def get_all_dialogs_from_episode_df(episode_dialogs):
     return df_dialogs
 
 
-def get_everything():
+def get_everything() -> pd.DataFrame:
 
     full_corpus_df = pd.DataFrame()
 
@@ -109,11 +109,10 @@ def get_everything():
             df_dialogs = get_all_dialogs_from_episode_df(episode_dialogs)
 
             # Concat dataframe to overall show dataframe
-            print(f"Len Before Adding {episode_filepath} : {len(full_corpus_df)}")
+
             full_corpus_df = pd.concat([full_corpus_df, df_dialogs], axis=0)
-            print(f"Len After Adding {episode_filepath} : {len(full_corpus_df)}")
-    print(f"Final Full Corpus Length : {len(full_corpus_df)}")
-    print(full_corpus_df.head())
+
+    return full_corpus_df
 
 
 def main():
@@ -132,4 +131,4 @@ def main():
 
 
 if __name__ == "__main__":
-    get_everything()
+    main()
