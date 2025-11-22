@@ -38,3 +38,14 @@ def perform_pca(bert_vectors: list[np.ndarray], num_components = 2) -> np.ndarra
     pca = PCA(n_components=num_components)
     bert_pca = pca.fit_transform(arr_bert_vectors)
     return bert_pca
+
+
+def driver():
+
+    # Get all dialogs
+    
+    # iterate through and get all embeddings
+
+    # PCA + Graph embeddgiuns
+
+    # 
