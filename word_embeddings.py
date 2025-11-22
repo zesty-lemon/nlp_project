@@ -159,7 +159,7 @@ def driver():
 
 def run_already_saved():
     # Code for PCA
-    with open(c.SAVED_EMBEDDINGS_DIR, "r") as infile:
+    with open(c.SAVED_EMBEDDINGS_DIR, "rb") as infile:
         embeddings = np.load(infile)
         pca = perform_pca(embeddings, c.NUM_PRIMARY_COMPONENTS)
         pca_3d = perform_pca(embeddings, num_components=3)
@@ -167,7 +167,7 @@ def run_already_saved():
         full_corpus_df = get_everything()
         gt_labels_list = full_corpus_df["GT"].astype(int).tolist()
         plot_2d_pca(pca, gt_labels_list)
-        pca_3d = perform_pca(embeddings, num_components=3)
+        plot_3d_pca(pca_3d,gt_labels_list)
 
 if __name__ == "__main__":
 
