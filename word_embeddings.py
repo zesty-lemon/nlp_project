@@ -21,7 +21,7 @@ from corpus_utils import get_everything
 tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
 # Load pre - trained model
 model = BertModel.from_pretrained("bert-base-uncased")
-
+model.eval() # since wea re not training BERT to be used later, we want to turn off dropout by turning on eval mode
 
 # Function to get embeddings as seen in 10_Embeddings.ipynb
 def get_embedding(text):
