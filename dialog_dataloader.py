@@ -1,4 +1,5 @@
 from torch.utils.data import Dataset
+import torch
 
 
 class DialogDataset(Dataset):
@@ -17,5 +18,10 @@ class DialogDataset(Dataset):
     def __len__(self):
         return len(self.x_features)
 
-    def __getitem__(self):
-        return NotImplementedError
+    def __getitem__(self, index):
+        # Return a dictionary with 'features' and 'label' as keys
+        item = {
+            "features": torch.tensor(self.x_features[index], dtype=torch.float32),
+            "label": self.y_labels[index],
+        }
+        return item
