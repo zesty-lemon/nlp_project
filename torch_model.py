@@ -37,11 +37,8 @@ def load_data(bert_version="base"):
     with open(embedding_path, "rb") as infile:
         embeddings = np.load(infile)
 
-    return embeddings
-
-
-# Split the embeddings into train test split validation sets
-print
+    # Split the embeddings into train test split validation sets
+    print(embeddings.shape)
 
 
 # Create the model
@@ -53,4 +50,4 @@ print
 if __name__ == "__main__":
 
     device = setup()
-    embeddings = load_data()
+    load_data()
