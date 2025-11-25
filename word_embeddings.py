@@ -214,7 +214,7 @@ def perform_and_plot_pca(full_corpus_df: pd.DataFrame,
     if show_and_save_plots:
         gt_labels_list = full_corpus_df["GT"].astype(int).tolist()
         plot_2d_pca(pca, gt_labels_list, model_selection.name + "_2d_pca")
-        plot_3d_pca(pca_3d,gt_labels_list, model_selection.name + "_2d_pca")
+        plot_3d_pca(pca_3d,gt_labels_list, model_selection.name + "_3d_pca")
 
 
 # Perform PCA analysis and optionally save plots of PCA to /plots directory
