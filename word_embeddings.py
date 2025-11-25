@@ -200,6 +200,8 @@ def plot_3d_pca(bert_pca_primary, ground_truth_list: list[int], figure_name: str
     plt.show()
 
 
+# Orchestrate performing PCA and Plotting 2d and 3d plots
+# performed on new embeddings
 def perform_and_plot_pca(full_corpus_df: pd.DataFrame,
                          embeddings: list[ndarray],
                          model_selection: BERT_MODEL,
