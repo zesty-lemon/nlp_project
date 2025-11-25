@@ -40,7 +40,7 @@ def get_classic_bert_embedding(text, tokenizer: BertTokenizer, model: BertModel)
     with torch.no_grad():
         outputs = model(**inputs)
     # Use [CLS] token embedding as sentence representation
-    return outputs.last_hidden_state[0][0].numpy().astype(np.float64)  # [CLS] token, force 64 bit
+    return outputs.last_hidden_state[0][0].numpy().astype(np.float32)  # [CLS] token, force 32 bit
 
 
 # perform and return bert embeddings
@@ -68,7 +68,7 @@ def perform_classic_bert_embedding(dialogs: list[str]) -> list[np.ndarray]:
 
 # Return embeddings for SBert
 def get_sbert_embeddings(texts: list[str], model: SentenceTransformer, print_stats: bool = False):
-    embeddings = model.encode(texts, convert_to_numpy=True).astype(np.float64) # Should be default, but forcing anyway
+    embeddings = model.encode(texts, convert_to_numpy=True).astype(np.float32) # Should be default, but forcing anyway
 
     if print_stats:
         print(f"Embedding shape: {embeddings.shape}")
@@ -299,7 +299,7 @@ def get_embeddings_and_labels_for_model(model_selection = BERT_MODEL,
         embeddings = np.load(infile)
 
     # Convert embeddings to list[np.ndarray]
-    embeddings_list = [np.asarray(e, dtype=np.float64) for e in embeddings] # Force Typing
+    embeddings_list = [np.asarray(e, dtype=np.float32) for e in embeddings] # Force Typing
 
     # Load ground-truth labels
     full_corpus_df = get_everything()
@@ -315,9 +315,6 @@ def get_embeddings_and_labels_for_model(model_selection = BERT_MODEL,
 
 
 if __name__ == "__main__":
-    orchestrate_embeddings_and_pca(model_selection = BERT_MODEL.BERT,
+    orchestrate_embeddings_and_pca(model_selection = BERT_MODEL.S_BERT,
                                    use_cached_embeddings=False,
                                    show_and_save_plots=True)
-
-    get_embeddings_and_labels_for_model(model_selection=BERT_MODEL.BERT,
-                                        use_cached_embeddings=True)

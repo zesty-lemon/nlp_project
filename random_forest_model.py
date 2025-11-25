@@ -29,7 +29,7 @@ def read_features(model_selection = BERT_MODEL.BERT) -> Tuple[np.ndarray, np.nda
                                                                                use_cached_embeddings=True)
 
     embeddings = df_labels_embeddings["Embedding"].values
-    X_features = np.vstack(embeddings).astype(np.float64)
+    X_features = np.vstack(embeddings).astype(np.float32)
     y_labels = df_labels_embeddings["GT"].astype(int).to_numpy()
 
     X_features = np.array(X_features)
@@ -104,7 +104,9 @@ def assess_clf_performance(clf: RandomForestClassifier, Xtest: np.ndarray,
 
 
 # train and test a random forest model with a simple test/training split
-def train_randomforest(clf: RandomForestClassifier, X_features: np.ndarray, y_labels: np.ndarray,
+def train_randomforest(clf: RandomForestClassifier,
+                       X_features: np.ndarray,
+                       y_labels: np.ndarray,
                        classes: Dict[str, int], random_state: int = 42,
                        find_n_estimators: bool = False, test_size=0.3,
                        print_perf_metrics: bool = True) -> RandomForestClassifier:
@@ -114,12 +116,12 @@ def train_randomforest(clf: RandomForestClassifier, X_features: np.ndarray, y_la
         random_state=random_state
     )
 
-    # train model
+    # Train the model
     clf.fit(Xtrain, ytrain)
-
+    # Print Performance Metrics
     if print_perf_metrics:
         assess_clf_performance(clf, Xtest, ytest, classes)
-
+    # (Optional) find & print perf graphs with different numbers of estimators
     if find_n_estimators:
         find_best_n_estimators_random_forest(Xtrain, Xtest, ytrain, ytest)
 
@@ -181,24 +183,26 @@ def perform_random_param_search(X_features: np.ndarray, y_labels: np.ndarray, sa
     clf = run_random_param_search(Xtrain, ytrain)
 
     if save_to_file:
-        joblib.dump(clf, 'trained_models/random_forest_model.joblib')
+        joblib.dump(clf, 'trained_models/random_forest/random_forest_model.joblib')
 
 
 
 #---- Run Model -----
-root = "data/gonzalez_2017/data/"
 classes = {"humour": 1,"non_humour": 0}
 
-
 # read features in from file and resample them
-X_features, y_labels = read_features(root)
+X_features, y_labels = read_features(BERT_MODEL.BERT)
 
 # # perform k-fold validation random forest
-# perform_k_fold_randomforest(X_features, y_labels)
-#
+perform_k_fold_randomforest(X_features, y_labels)
+
 # # fit random forest model
-# clf = RandomForestClassifier(n_estimators=200, random_state=42)
-# clf = train_randomforest(clf, X_features, y_labels, classes)
+clf = RandomForestClassifier(n_estimators=200, random_state=42)
+clf = train_randomforest(clf, X_features, y_labels, classes)
 #
 # perform_random_param_search(X_features, y_labels, save_to_file = True)
 
+# TODO:
+# save output model to directory
+# directory contains statistics
+# trained model is named with score
