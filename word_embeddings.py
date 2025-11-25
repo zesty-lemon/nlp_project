@@ -1,7 +1,10 @@
-import matplotlib
 import numpy as np
+import pandas as pd
 import torch
 import os
+
+from numpy import ndarray
+
 import constants as c
 import matplotlib
 from matplotlib import pyplot as plt
@@ -11,9 +14,11 @@ from tqdm import tqdm
 from transformers import BertModel, BertTokenizer
 from corpus_utils import get_everything
 
+# ---------------------------------------------------------------------
+# Model and Tokenizer Setup
+# ---------------------------------------------------------------------
 # Load pre - trained tokenizer
 tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
-
 # Load pre - trained model
 model = BertModel.from_pretrained("bert-base-uncased")
 
@@ -52,6 +57,12 @@ def perform_pca(bert_vectors: list[np.ndarray], num_components=2) -> np.ndarray:
     return bert_pca
 
 
+# helper function to save plots to folder
+def save_figure(name: str):
+    os.makedirs("figures", exist_ok=True)
+    plt.savefig(f"figures/{name}.png", dpi=300, bbox_inches="tight")
+
+
 # plot 2d representation of bert embeddings
 def plot_2d_pca(bert_pca_primary, ground_truth_list: list[int]):
 
@@ -86,6 +97,7 @@ def plot_2d_pca(bert_pca_primary, ground_truth_list: list[int]):
     plt.xlabel("Principal Component 1", fontsize=14)
     plt.ylabel("Principal Component 2", fontsize=14)
     plt.legend()
+    save_figure("pca2d")
     plt.show()
 
 
@@ -132,10 +144,26 @@ def plot_3d_pca(bert_pca_primary, ground_truth_list: list[int]):
     ax.set_ylabel("Principal Component 2", fontsize=14)
     ax.set_zlabel("Principal Component 3", fontsize=14)
     ax.legend()
+    save_figure("pca3d")
     plt.show()
 
 
-def perform_and_save_embeddings():
+def perform_and_plot_pca(full_corpus_df: pd.DataFrame,
+                         embeddings: list[ndarray],
+                         show_and_save_plots: bool = True):
+    # PCA + Graph embeddgiuns (2d and 3d)
+    pca = perform_pca(embeddings)
+    pca_3d = perform_pca(embeddings, num_components=3)
+
+    print(f"Len pca embeddings: {len(pca)}")
+    if show_and_save_plots:
+        gt_labels_list = full_corpus_df["GT"].astype(int).tolist()
+        plot_2d_pca(pca, gt_labels_list)
+        plot_3d_pca(pca_3d,gt_labels_list)
+
+
+# Perform PCA analysis and optionally save plots of PCA to /plots directory
+def perform_fresh_embeddings_and_pca(show_and_save_plots: bool = True):
     print("Starting")
 
     # Get all dialogs
@@ -151,33 +179,29 @@ def perform_and_save_embeddings():
     np.save(c.SAVED_EMBEDDINGS_DIR, embeddings)
 
     # PCA + Graph embeddgiuns (2d and 3d)
-    pca = perform_pca(embeddings)
-    pca_3d = perform_pca(embeddings, num_components=3)
-
-    print(f"Len pca embeddings: {len(pca)}")
-
-    gt_labels_list = full_corpus_df["GT"].astype(int).tolist()
-    plot_2d_pca(pca, gt_labels_list)
-    plot_3d_pca(pca_3d,gt_labels_list)
+    perform_and_plot_pca(full_corpus_df, embeddings, show_and_save_plots=show_and_save_plots)
 
 
-def run_already_saved():
+# Perform and Plot PCA from already saved embeddings
+def perform_cached_embeddings_and_pca(show_and_save_plots: bool = True):
     # Code for PCA
     with open(c.SAVED_EMBEDDINGS_DIR, "rb") as infile:
         embeddings = np.load(infile)
-        pca = perform_pca(embeddings, c.NUM_PRIMARY_COMPONENTS)
-        pca_3d = perform_pca(embeddings, num_components=3)
-
         full_corpus_df = get_everything()
-        gt_labels_list = full_corpus_df["GT"].astype(int).tolist()
-        plot_2d_pca(pca, gt_labels_list)
-        plot_3d_pca(pca_3d,gt_labels_list)
+        perform_and_plot_pca(full_corpus_df, embeddings, show_and_save_plots=show_and_save_plots)
+
+
+
+# Perform BERT embeddings and PCA, and optionally plot PCA
+# embeddings can be used from cache (use_cached_embeddings=true) or re-run
+def orchestrate_pca(use_cached_embeddings: bool = True, show_and_save_plots: bool = True):
+    cached_embeddings_present = os.stat(c.SAVED_EMBEDDINGS_DIR).st_size != 0
+    # If embeddings are not present or we want to override cache
+    if (not cached_embeddings_present) or (not use_cached_embeddings):
+        perform_fresh_embeddings_and_pca(show_and_save_plots = show_and_save_plots)
+    else:
+        perform_cached_embeddings_and_pca(show_and_save_plots = show_and_save_plots)
+
 
 if __name__ == "__main__":
-
-    # Check if the embeddings file has data saved to it
-    if os.stat(c.SAVED_EMBEDDINGS_DIR).st_size == 0:
-        perform_and_save_embeddings()
-
-    else:
-        run_already_saved()
+    orchestrate_pca(use_cached_embeddings=True, show_and_save_plots=True)
