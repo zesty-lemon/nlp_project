@@ -135,7 +135,7 @@ def plot_3d_pca(bert_pca_primary, ground_truth_list: list[int]):
     plt.show()
 
 
-def driver():
+def perform_and_save_embeddings():
     print("Starting")
 
     # Get all dialogs
@@ -177,7 +177,7 @@ if __name__ == "__main__":
 
     # Check if the embeddings file has data saved to it
     if os.stat(c.SAVED_EMBEDDINGS_DIR).st_size == 0:
-        driver()
+        perform_and_save_embeddings()
 
     else:
         run_already_saved()
