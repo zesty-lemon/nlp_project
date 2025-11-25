@@ -2,7 +2,7 @@ import torch
 from torch.utils.data import random_split, DataLoader
 import pandas as pd
 import numpy as np
-from constants import BERT_MODEL
+from constants import BERT_MODEL, BATCH_SIZE
 from corpus_utils import get_everything
 from dialog_dataloader import DialogDataset
 
@@ -73,9 +73,9 @@ def load_split_data(bert_version: BERT_MODEL, verbose=False):
     )
 
     # Create the dataloaders for each split
-    train_dl = DataLoader(train_dataset, batch_size=64, shuffle=True)
-    test_dl = DataLoader(test_dataset, batch_size=64)
-    validation_dl = DataLoader(val_dataset, batch_size=64)
+    train_dl = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
+    test_dl = DataLoader(test_dataset, batch_size=BATCH_SIZE)
+    validation_dl = DataLoader(val_dataset, batch_size=BATCH_SIZE)
 
 
 # Create the model
