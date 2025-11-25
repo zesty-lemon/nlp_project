@@ -4,27 +4,38 @@ import torch
 import os
 
 from numpy import ndarray
+from sympy import false
 
 import constants as c
+from constants import BERT_MODEL
+
 import matplotlib
 from matplotlib import pyplot as plt
 # matplotlib.use("Qt5Agg") # uncomment to pop charts out into seperate window on mac
 from sklearn.decomposition import PCA
 from tqdm import tqdm
 from transformers import BertModel, BertTokenizer
+from sentence_transformers import SentenceTransformer
 from corpus_utils import get_everything
+
+
+# if file or directories do not exist make both directories and empty file
+def make_empty_file_if_not_exists(path: str) -> bool:
+    # Make parent directories
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+
+    # Create the file if missing
+    if not os.path.isfile(path):
+        with open(path, "w") as f:
+            pass
+
 
 # ---------------------------------------------------------------------
 # Model and Tokenizer Setup
 # ---------------------------------------------------------------------
-# Load pre - trained tokenizer
-tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
-# Load pre - trained model
-model = BertModel.from_pretrained("bert-base-uncased")
-model.eval() # since wea re not training BERT to be used later, we want to turn off dropout by turning on eval mode
 
 # Function to get embeddings as seen in 10_Embeddings.ipynb
-def get_embedding(text):
+def get_classic_bert_embedding(text, tokenizer: BertTokenizer, model: BertModel):
     inputs = tokenizer(text, return_tensors="pt", padding=True, truncation=True)
     with torch.no_grad():
         outputs = model(**inputs)
@@ -34,7 +45,13 @@ def get_embedding(text):
 
 # perform and return bert embeddings
 # performed on whole episodes worth of dialogs at once
-def perform_bert_embedding(dialogs: list[str]) -> list[np.ndarray]:
+def perform_classic_bert_embedding(dialogs: list[str]) -> list[np.ndarray]:
+    # Load pre - trained tokenizer
+    tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
+    # Load pre - trained model
+    model = BertModel.from_pretrained("bert-base-uncased")
+    model.eval()
+
     embeddings = []
 
     for dialog_index in tqdm(
@@ -43,8 +60,43 @@ def perform_bert_embedding(dialogs: list[str]) -> list[np.ndarray]:
         unit=" dialogs",
         colour="blue",
     ):
-        bert_embedding = get_embedding(dialogs[dialog_index])
+        bert_embedding = get_classic_bert_embedding(dialogs[dialog_index], tokenizer, model)
         embeddings.append(bert_embedding)
+
+    return embeddings
+
+
+# Return embeddings for SBert
+def get_sbert_embeddings(texts: list[str], model: SentenceTransformer, print_stats: bool = False):
+    embeddings = model.encode(texts, convert_to_numpy=True)
+
+    if print_stats:
+        print(f"Embedding shape: {embeddings.shape}")
+
+    return embeddings
+
+
+# perform and return SBERT embeddings (batched)
+def perform_sentence_bert_embedding(dialogs: list[str], batch_size: int = 32) -> list[np.ndarray]:
+    # Load pre-trained model
+    model = SentenceTransformer("all-MiniLM-L6-v2")
+    model.eval()
+
+    embeddings = []
+
+    for start_idx in tqdm(
+        range(0, len(dialogs), batch_size),
+        desc="Performing Sentence BERT Embedding",
+        unit=" dialogs",
+        colour="blue",
+    ):
+        # Batch embeddings for speed
+        batch = dialogs[start_idx : start_idx + batch_size]
+        # encode entire batch at once
+        batch_embeddings = get_sbert_embeddings(batch, model)
+
+        for emb in batch_embeddings:
+            embeddings.append(emb)
 
     return embeddings
 
@@ -64,7 +116,7 @@ def save_figure(name: str):
 
 
 # plot 2d representation of bert embeddings
-def plot_2d_pca(bert_pca_primary, ground_truth_list: list[int]):
+def plot_2d_pca(bert_pca_primary, ground_truth_list: list[int], figure_name: str):
 
     humorous_pca_x = []
     humorous_pca_y = []
@@ -97,12 +149,12 @@ def plot_2d_pca(bert_pca_primary, ground_truth_list: list[int]):
     plt.xlabel("Principal Component 1", fontsize=14)
     plt.ylabel("Principal Component 2", fontsize=14)
     plt.legend()
-    save_figure("pca2d")
+    save_figure(figure_name)
     plt.show()
 
 
 # plot 2d representation of bert embeddings
-def plot_3d_pca(bert_pca_primary, ground_truth_list: list[int]):
+def plot_3d_pca(bert_pca_primary, ground_truth_list: list[int], figure_name: str):
 
     humorous_pca_x = []
     humorous_pca_y = []
@@ -144,12 +196,13 @@ def plot_3d_pca(bert_pca_primary, ground_truth_list: list[int]):
     ax.set_ylabel("Principal Component 2", fontsize=14)
     ax.set_zlabel("Principal Component 3", fontsize=14)
     ax.legend()
-    save_figure("pca3d")
+    save_figure(figure_name)
     plt.show()
 
 
 def perform_and_plot_pca(full_corpus_df: pd.DataFrame,
                          embeddings: list[ndarray],
+                         model_selection: BERT_MODEL,
                          show_and_save_plots: bool = True):
     # PCA + Graph embeddgiuns (2d and 3d)
     pca = perform_pca(embeddings)
@@ -158,12 +211,13 @@ def perform_and_plot_pca(full_corpus_df: pd.DataFrame,
     print(f"Len pca embeddings: {len(pca)}")
     if show_and_save_plots:
         gt_labels_list = full_corpus_df["GT"].astype(int).tolist()
-        plot_2d_pca(pca, gt_labels_list)
-        plot_3d_pca(pca_3d,gt_labels_list)
+        plot_2d_pca(pca, gt_labels_list, model_selection.name + "_2d_pca")
+        plot_3d_pca(pca_3d,gt_labels_list, model_selection.name + "_2d_pca")
 
 
 # Perform PCA analysis and optionally save plots of PCA to /plots directory
-def perform_fresh_embeddings_and_pca(show_and_save_plots: bool = True):
+def perform_fresh_embeddings_and_pca(model_selection: BERT_MODEL,
+                                     show_and_save_plots: bool = True):
     print("Starting")
 
     # Get all dialogs
@@ -172,36 +226,62 @@ def perform_fresh_embeddings_and_pca(show_and_save_plots: bool = True):
 
     # Iterate through and get all embeddings
     dialog_list = full_corpus_df["Full_Conversation"].values.tolist()
-    embeddings = perform_bert_embedding(dialog_list)
-    print(f"Len of embeddings: {len(embeddings)}")
 
-    # Save to a file
-    np.save(c.SAVED_EMBEDDINGS_DIR, embeddings)
+    # Pick appropriate model and perform embeddings
+    if model_selection is BERT_MODEL.BERT:
+        embeddings = perform_classic_bert_embedding(dialog_list)
+        np.save(model_selection.BERT.value, embeddings)
+        print(f"Embeddings Saved To: {model_selection.BERT.value}")
+        print(f"Len of embeddings: {len(embeddings)}")
+
+    elif model_selection is BERT_MODEL.S_BERT:
+        embeddings = perform_sentence_bert_embedding(dialog_list)
+        np.save(model_selection.S_BERT.value, embeddings)
+        print(f"Embeddings Saved To: {model_selection.S_BERT.value}")
+        print(f"Len of embeddings: {len(embeddings)}")
 
     # PCA + Graph embeddgiuns (2d and 3d)
-    perform_and_plot_pca(full_corpus_df, embeddings, show_and_save_plots=show_and_save_plots)
+    perform_and_plot_pca(full_corpus_df,
+                         embeddings,
+                         model_selection = model_selection,
+                         show_and_save_plots = show_and_save_plots)
 
 
 # Perform and Plot PCA from already saved embeddings
-def perform_cached_embeddings_and_pca(show_and_save_plots: bool = True):
+def perform_cached_embeddings_and_pca(model_selection: BERT_MODEL,
+                                      show_and_save_plots: bool = True):
     # Code for PCA
-    with open(c.SAVED_EMBEDDINGS_DIR, "rb") as infile:
+    with open(model_selection.value, "rb") as infile:
         embeddings = np.load(infile)
         full_corpus_df = get_everything()
-        perform_and_plot_pca(full_corpus_df, embeddings, show_and_save_plots=show_and_save_plots)
+
+        perform_and_plot_pca(full_corpus_df,
+                             embeddings,
+                             model_selection = model_selection,
+                             show_and_save_plots=show_and_save_plots)
 
 
 
 # Perform BERT embeddings and PCA, and optionally plot PCA
 # embeddings can be used from cache (use_cached_embeddings=true) or re-run
-def orchestrate_pca(use_cached_embeddings: bool = True, show_and_save_plots: bool = True):
-    cached_embeddings_present = os.stat(c.SAVED_EMBEDDINGS_DIR).st_size != 0
+# models can be selected from by specifying BERT_MODEL.BERT or BERT_MODEL.S_BERT
+def orchestrate_embeddings_and_pca(model_selection = BERT_MODEL,
+                                   use_cached_embeddings: bool = True,
+                                   show_and_save_plots: bool = True):
+    # Make output file if not already present
+    make_empty_file_if_not_exists(model_selection.value)
+    # Check if output file is empty (if cached data not present)
+    cached_embeddings_present = os.stat(model_selection.value).st_size != 0
     # If embeddings are not present or we want to override cache
     if (not cached_embeddings_present) or (not use_cached_embeddings):
-        perform_fresh_embeddings_and_pca(show_and_save_plots = show_and_save_plots)
+        perform_fresh_embeddings_and_pca(model_selection = model_selection,
+                                         show_and_save_plots = show_and_save_plots)
     else:
-        perform_cached_embeddings_and_pca(show_and_save_plots = show_and_save_plots)
+        perform_cached_embeddings_and_pca(model_selection = model_selection,
+                                         show_and_save_plots = show_and_save_plots)
 
 
 if __name__ == "__main__":
-    orchestrate_pca(use_cached_embeddings=True, show_and_save_plots=True)
+    orchestrate_embeddings_and_pca(model_selection = BERT_MODEL.S_BERT,
+                                   use_cached_embeddings=False,
+                                   show_and_save_plots=True)
