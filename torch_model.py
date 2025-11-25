@@ -92,6 +92,7 @@ class NN(nn.Module):
         self.layer2 = nn.Sequential(nn.Linear(512, 128), nn.ReLU())
         self.flatten = nn.Flatten()
         self.layer3 = nn.Sequential(nn.Linear(128, 1))
+        self.flatten2 = nn.Flatten()
         self.softmax = nn.Sigmoid()
 
     def forward(self, x):
@@ -99,6 +100,7 @@ class NN(nn.Module):
         x = self.layer2(x)
         x = self.flatten(x)
         x = self.layer3(x)
+        x = self.flatten2(x)
         x = self.softmax(x)
 
         # Return confidence
@@ -115,9 +117,11 @@ def train(dataloader, model, loss_fn, optimizer, device):
 
         # Compute prediction error
         output = model(x_features)
-        print(output)
-        print(output.shape)
-        pred = round(output)
+        pred = torch.round(output)
+        # TODO: Can't figure out best input shape or why our loss function is having issues. potentially try explicit BCEloss function?
+        print(f"Min, Max: {y_labels.min(), y_labels.max()}")
+        print(pred.shape)
+        print(y_labels.shape)
         loss = loss_fn(pred, y_labels)
 
         # Backpropagation
@@ -140,7 +144,7 @@ def test(dataloader, model, loss_fn, device):
         for x_features, y_labels in dataloader:
             x_features, y_labels = x_features.to(device), y_labels.to(device)
             output = model(x_features)
-            pred = round(output)
+            pred = torch.round(output)
             test_loss += loss_fn(pred, y_labels).item()
             correct += (pred.argmax(1) == y_labels).type(torch.float).sum().item()
     test_loss /= num_batches
@@ -162,7 +166,7 @@ def evaluate(data_loader, model, device):
         for inputs, labels in data_loader:
             inputs, labels = inputs.to(device), labels.to(device)
             output = model(inputs)
-            prediction = round(output)
+            prediction = torch.round(output)
             correct_predictions += (prediction == labels).sum().item()
             total_predictions += labels.size(0)
 
