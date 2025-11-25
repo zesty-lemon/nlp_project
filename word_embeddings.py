@@ -4,7 +4,6 @@ import torch
 import os
 
 from numpy import ndarray
-from sympy import false
 
 import constants as c
 from constants import BERT_MODEL
@@ -20,7 +19,7 @@ from corpus_utils import get_everything
 
 
 # if file or directories do not exist make both directories and empty file
-def make_empty_file_if_not_exists(path: str) -> bool:
+def make_empty_file_if_not_exists(path: str):
     # Make parent directories
     os.makedirs(os.path.dirname(path), exist_ok=True)
 
@@ -232,14 +231,14 @@ def perform_fresh_embeddings_and_pca(model_selection: BERT_MODEL,
     # Pick appropriate model and perform embeddings
     if model_selection is BERT_MODEL.BERT:
         embeddings = perform_classic_bert_embedding(dialog_list)
-        np.save(model_selection.BERT.value, embeddings)
-        print(f"Embeddings Saved To: {model_selection.BERT.value}")
+        np.save(model_selection.value, embeddings)
+        print(f"Embeddings Saved To: {model_selection.value}")
         print(f"Len of embeddings: {len(embeddings)}")
 
     elif model_selection is BERT_MODEL.S_BERT:
         embeddings = perform_sentence_bert_embedding(dialog_list)
-        np.save(model_selection.S_BERT.value, embeddings)
-        print(f"Embeddings Saved To: {model_selection.S_BERT.value}")
+        np.save(model_selection.value, embeddings)
+        print(f"Embeddings Saved To: {model_selection.value}")
         print(f"Len of embeddings: {len(embeddings)}")
 
     # PCA + Graph embeddgiuns (2d and 3d)
@@ -267,7 +266,7 @@ def perform_cached_embeddings_and_pca(model_selection: BERT_MODEL,
 # Perform BERT embeddings and PCA, and optionally plot PCA
 # embeddings can be used from cache (use_cached_embeddings=true) or re-run
 # models can be selected from by specifying BERT_MODEL.BERT or BERT_MODEL.S_BERT
-def orchestrate_embeddings_and_pca(model_selection = BERT_MODEL,
+def orchestrate_embeddings_and_pca(model_selection: BERT_MODEL,
                                    use_cached_embeddings: bool = True,
                                    show_and_save_plots: bool = True):
     # Make output file if not already present
@@ -286,7 +285,7 @@ def orchestrate_embeddings_and_pca(model_selection = BERT_MODEL,
 
 # Return Dataframe of Ground Truth labels and Embeddings
 # Uses cached emebddings if available, can also force a cache refresh
-def get_embeddings_and_labels_for_model(model_selection = BERT_MODEL,
+def get_embeddings_and_labels_for_model(model_selection: BERT_MODEL,
                                         use_cached_embeddings: bool = True):
     # Check if Cached embeddings exist, and if not re-run them before returning them
     make_empty_file_if_not_exists(model_selection.value)

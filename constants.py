@@ -6,6 +6,8 @@ from pathlib import Path
 
 # File Operations
 BIG_BANG_THEORY_DIR = Path("data/big_bang_theory")
+RANDOM_FOREST_TRAINED_MODEL_DIR_PREFIX = "trained_models/random_forest/"
+
 NUM_SEASONS = 5
 
 # Runtime Parameters
