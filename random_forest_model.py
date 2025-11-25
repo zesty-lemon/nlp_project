@@ -13,37 +13,24 @@ from sklearn.model_selection import train_test_split, StratifiedKFold, cross_val
 from sklearn.metrics import classification_report, roc_curve, auc, RocCurveDisplay
 from scipy.interpolate import interp1d
 from tqdm import tqdm
+import word_embeddings
 
-
-# read csv into NDArray, skipping the first row
-def read_series(filepath) -> NDArray[np.float32]:
-    return np.loadtxt(filepath, skiprows=1, delimiter=',').astype(np.float32)
-
-
-# resample the raw data into a fixed length using interpolation
-def interpolate_signal(x_raw_data, target_len=50):
-    n = len(x_raw_data)
-    if n == target_len:
-        return x_raw_data
-    old_idx = np.linspace(0, 1, n)
-    new_idx = np.linspace(0, 1, target_len)
-    f = interp1d(old_idx, x_raw_data, kind='linear')
-    return f(new_idx)
+from constants import BERT_MODEL
 
 
 # read features in from file
 # split into features and labels
-# resize the features to be consistent length
-def read_and_resample_features(file_root: str, classes: Dict[str, int], target_len:int = 50) -> Tuple[np.ndarray, np.ndarray]:
+def read_features(model_selection = BERT_MODEL.BERT) -> Tuple[np.ndarray, np.ndarray]:
     X_features = [] # joined array of all features for all desired classes together
     y_labels = [] # labels of features for all desired classes together
     # for each class, read its values into X_features and its labels into y_labels
-    for label, val in classes.items():
-        for file in glob.glob(os.path.join(file_root, label, "*.csv")):
-            x_raw_data = read_series(file)
-            x_resampled = interpolate_signal(x_raw_data, target_len=target_len)
-            X_features.append(x_resampled)
-            y_labels.append(val)
+
+    df_labels_embeddings = word_embeddings.get_embeddings_and_labels_for_model(model_selection = model_selection,
+                                                                               use_cached_embeddings=True)
+
+    embeddings = df_labels_embeddings["Embedding"].values
+    X_features = np.vstack(embeddings).astype(np.float64)
+    y_labels = df_labels_embeddings["GT"].astype(int).to_numpy()
 
     X_features = np.array(X_features)
     y_labels = np.array(y_labels)
@@ -204,24 +191,14 @@ classes = {"humour": 1,"non_humour": 0}
 
 
 # read features in from file and resample them
-X_features, y_labels = read_and_resample_features(root, classes, 50)
+X_features, y_labels = read_features(root)
 
-# perform k-fold validation random forest
-perform_k_fold_randomforest(X_features, y_labels)
+# # perform k-fold validation random forest
+# perform_k_fold_randomforest(X_features, y_labels)
+#
+# # fit random forest model
+# clf = RandomForestClassifier(n_estimators=200, random_state=42)
+# clf = train_randomforest(clf, X_features, y_labels, classes)
+#
+# perform_random_param_search(X_features, y_labels, save_to_file = True)
 
-# fit random forest model
-clf = RandomForestClassifier(n_estimators=200, random_state=42)
-clf = train_randomforest(clf, X_features, y_labels, classes)
-
-perform_random_param_search(X_features, y_labels, save_to_file = True)
-
-for X_index in range(0,len(X_features)):
-    if y_labels[X_index] == 0:
-        plt.plot(range(0, 50), X_features[X_index], 'b')
-    if y_labels[X_index] == 1:
-        plt.plot(range(0, 50), X_features[X_index], 'r')
-    if y_labels[X_index] == 2:
-        plt.plot(range(0, 50), X_features[X_index], 'g')
-    if y_labels[X_index] == 3:
-        plt.plot(range(0, 50), X_features[X_index], 'm')
-plt.show()
