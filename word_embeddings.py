@@ -40,7 +40,7 @@ def get_classic_bert_embedding(text, tokenizer: BertTokenizer, model: BertModel)
     with torch.no_grad():
         outputs = model(**inputs)
     # Use [CLS] token embedding as sentence representation
-    return outputs.last_hidden_state[0][0].numpy()  # [CLS] token
+    return outputs.last_hidden_state[0][0].numpy().astype(np.float64)  # [CLS] token, force 64 bit
 
 
 # perform and return bert embeddings
@@ -68,7 +68,7 @@ def perform_classic_bert_embedding(dialogs: list[str]) -> list[np.ndarray]:
 
 # Return embeddings for SBert
 def get_sbert_embeddings(texts: list[str], model: SentenceTransformer, print_stats: bool = False):
-    embeddings = model.encode(texts, convert_to_numpy=True)
+    embeddings = model.encode(texts, convert_to_numpy=True).astype(np.float64) # Should be default, but forcing anyway
 
     if print_stats:
         print(f"Embedding shape: {embeddings.shape}")
@@ -283,7 +283,41 @@ def orchestrate_embeddings_and_pca(model_selection = BERT_MODEL,
                                          show_and_save_plots = show_and_save_plots)
 
 
+
+# Return Dataframe of Ground Truth labels and Embeddings
+# Uses cached emebddings if available, can also force a cache refresh
+def get_embeddings_and_labels_for_model(model_selection = BERT_MODEL,
+                                        use_cached_embeddings: bool = True):
+    # Check if Cached embeddings exist, and if not re-run them before returning them
+    make_empty_file_if_not_exists(model_selection.value)
+    cached_embeddings_present = os.stat(model_selection.value).st_size != 0
+    if (not cached_embeddings_present) or (not use_cached_embeddings):
+        perform_fresh_embeddings_and_pca(model_selection = model_selection,
+                                         show_and_save_plots = False)
+
+    with open(model_selection.value, "rb") as infile:
+        embeddings = np.load(infile)
+
+    # Convert embeddings to list[np.ndarray]
+    embeddings_list = [np.asarray(e, dtype=np.float64) for e in embeddings] # Force Typing
+
+    # Load ground-truth labels
+    full_corpus_df = get_everything()
+    gt_list = full_corpus_df["GT"].astype(int).tolist()
+
+    # Build the DataFrame
+    df = pd.DataFrame({
+        "GT": gt_list,
+        "Embedding": embeddings_list
+    })
+
+    return df
+
+
 if __name__ == "__main__":
-    orchestrate_embeddings_and_pca(model_selection = BERT_MODEL.S_BERT,
+    orchestrate_embeddings_and_pca(model_selection = BERT_MODEL.BERT,
                                    use_cached_embeddings=False,
                                    show_and_save_plots=True)
+
+    get_embeddings_and_labels_for_model(model_selection=BERT_MODEL.BERT,
+                                        use_cached_embeddings=True)
