@@ -58,38 +58,15 @@ def read_features(model_selection: BERT_MODEL) -> Tuple[np.ndarray, np.ndarray]:
     return X_features, y_labels
 
 
-# Find and plot accuracy vs number of estimators
-# for random forest classifier
-def find_best_n_estimators_random_forest(Xtrain:np.ndarray, Xtest: np.ndarray, ytrain: np.ndarray, ytest: np.ndarray):
-    n_estimator_val = []
-    rf_score = []
-
-    # pretty print loading bars with tqdm just for fun
-    for i in tqdm(range(10, 301), desc="Training Random Forests", unit="model"):
-        rf_classifier = RandomForestClassifier(n_estimators=i)
-        rf_classifier.fit(Xtrain, ytrain)
-        score = rf_classifier.score(Xtest, ytest)
-        n_estimator_val.append(i)
-        rf_score.append(score)
-
-    plt.figure(figsize=(8, 4.5))
-    plt.plot(n_estimator_val, rf_score, linewidth=1)
-    plt.xlabel("Number of Estimator Values (integer)")
-    plt.ylabel("Accuracy")
-    plt.title("Random Forest Classifier Accuracy vs. Number of Estimators")
-    plt.grid(True, linestyle='--', alpha=0.3)
-    plt.show()
-
 
 # Run classification report to assess classifier performance
 # classifier should ALREADY be fitted
 # Also compute AUC and graph ROC
-def assess_clf_performance(clf: RandomForestClassifier,
-                           Xtest: np.ndarray,
-                           ytest: np.ndarray,
-                           classes: Dict[str, int],
-                           directory: str = None,
-                           save_report_and_model: bool = False):
+def assess_simple_test_train_clf_performance(clf: RandomForestClassifier,
+                                             Xtest: np.ndarray,
+                                             ytest: np.ndarray,
+                                             classes: Dict[str, int],
+                                             directory: str = None):
 
     ypred = clf.predict(Xtest)
 
@@ -109,7 +86,7 @@ def assess_clf_performance(clf: RandomForestClassifier,
     print(f"AUC: {roc_auc:.3f}")
 
     # Save Reprot & Model
-    if directory is not None and save_report_and_model:
+    if directory is not None:
         manually_dir = os.path.join(directory, "manually_instantiated_model")
         os.makedirs(manually_dir, exist_ok=True)
 
@@ -156,11 +133,9 @@ def train_randomforest(clf: RandomForestClassifier,
                        y_labels: np.ndarray,
                        classes: Dict[str, int],
                        random_state: int = 42,
-                       find_n_estimators: bool = False,
                        test_size=0.3,
                        print_perf_metrics: bool = True,
-                       report_directory: str = None,
-                       save_report_and_model: bool = False) -> RandomForestClassifier:
+                       report_directory: str = None) -> RandomForestClassifier:
 
     print("---- BEGIN Training Random Forest Classifier ---")
     Xtrain, Xtest, ytrain, ytest = train_test_split(
@@ -172,16 +147,13 @@ def train_randomforest(clf: RandomForestClassifier,
     clf.fit(Xtrain, ytrain)
     # Print Performance Metrics
     if print_perf_metrics:
-        assess_clf_performance(clf,
-                               Xtest,
-                               ytest,
-                               classes,
-                               directory=report_directory,
-                               save_report_and_model=save_report_and_model)
+        assess_simple_test_train_clf_performance(clf,
+                                                 Xtest,
+                                                 ytest,
+                                                 classes,
+                                                 directory=report_directory)
 
-    # (Optional) find & print perf graphs with different numbers of estimators
-    if find_n_estimators:
-        find_best_n_estimators_random_forest(Xtrain, Xtest, ytrain, ytest)
+
     print("---- END Training Random Forest Classifier ---")
     return clf
 
@@ -314,7 +286,7 @@ def run_random_param_search(X_train: np.ndarray,
 def perform_random_param_search(X_features: np.ndarray,
                                 y_labels: np.ndarray,
                                 directory: str,
-                                save_to_file: bool = False) -> RandomForestClassifier:
+                                save_to_file: bool = True) -> RandomForestClassifier:
     # Split into Test/Train sets
     Xtrain, Xtest, ytrain, ytest = train_test_split(
         X_features, y_labels, test_size=0.3, stratify=y_labels,
@@ -325,9 +297,29 @@ def perform_random_param_search(X_features: np.ndarray,
     os.makedirs(output_dir, exist_ok=True)
 
     clf = run_random_param_search(Xtrain, ytrain, output_dir)
-
     if save_to_file:
         joblib.dump(clf, f'{output_dir}/random_forest_model.joblib')
+
+    # Get ROC/AUC and Plot It
+    y_score = clf.predict_proba(Xtest)[:, 1]
+    fpr, tpr, _ = roc_curve(ytest, y_score)
+    roc_auc = auc(fpr, tpr)
+
+    print(f"Random search best model AUC (test set): {roc_auc:.3f}")
+
+    # Plot ROC (matching your existing style)
+    plt.figure(figsize=(6, 6))
+    RocCurveDisplay(fpr=fpr, tpr=tpr, roc_auc=roc_auc, name="RandomForest").plot()
+    plt.plot([0, 1], [0, 1], linestyle="--", linewidth=1)
+    plt.title("ROC Curve (Random Search Best Model)")
+    plt.grid(True, linestyle="--", alpha=0.3)
+    plt.tight_layout()
+
+    # Save ROC to file
+    plot_filepath = os.path.join(output_dir, "roc_curve_random_search.png")
+    plt.savefig(plot_filepath)
+    plt.close()
+    print(f"Saved ROC curve to: {plot_filepath}")
 
     return clf
 
@@ -337,7 +329,7 @@ def create_new_trained_models(run_k_fold_validation: bool,
                               run_new_simple_rf_classifier: bool,
                               run_random_param_search: bool,
                               model_selection: BERT_MODEL):
-    # ---- Run Model -----
+
     directory_to_save_models = (
             c.RANDOM_FOREST_TRAINED_MODEL_DIR_PREFIX + "sandbox/" + generate_run_dir_name()
     )
@@ -364,8 +356,7 @@ def create_new_trained_models(run_k_fold_validation: bool,
                                  X_features,
                                  y_labels,
                                  classes,
-                                 report_directory=directory_to_save_models,
-                                 save_report_and_model=True)
+                                 report_directory=directory_to_save_models)
 
     # Perform Random Search
     if run_random_param_search:
@@ -375,9 +366,9 @@ def create_new_trained_models(run_k_fold_validation: bool,
                                     save_to_file=True)
 
 
-
 if __name__ == "__main__":
     create_new_trained_models(run_k_fold_validation=True,
                               run_new_simple_rf_classifier=True,
                               run_random_param_search=True,
                               model_selection=BERT_MODEL.BERT)
+
