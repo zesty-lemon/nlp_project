@@ -200,6 +200,8 @@ def plot_3d_pca(bert_pca_primary, ground_truth_list: list[int], figure_name: str
     plt.show()
 
 
+# Orchestrate performing PCA and Plotting 2d and 3d plots
+# performed on new embeddings
 def perform_and_plot_pca(full_corpus_df: pd.DataFrame,
                          embeddings: list[ndarray],
                          model_selection: BERT_MODEL,
@@ -212,7 +214,7 @@ def perform_and_plot_pca(full_corpus_df: pd.DataFrame,
     if show_and_save_plots:
         gt_labels_list = full_corpus_df["GT"].astype(int).tolist()
         plot_2d_pca(pca, gt_labels_list, model_selection.name + "_2d_pca")
-        plot_3d_pca(pca_3d,gt_labels_list, model_selection.name + "_2d_pca")
+        plot_3d_pca(pca_3d,gt_labels_list, model_selection.name + "_3d_pca")
 
 
 # Perform PCA analysis and optionally save plots of PCA to /plots directory
