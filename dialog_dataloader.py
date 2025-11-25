@@ -19,9 +19,8 @@ class DialogDataset(Dataset):
         return len(self.x_features)
 
     def __getitem__(self, index):
-        # Return a dictionary with 'features' and 'label' as keys
-        item = {
-            "features": torch.tensor(self.x_features[index], dtype=torch.float32),
-            "label": self.y_labels[index],
-        }
-        return item
+
+        x_feature = torch.tensor(self.x_features[index], dtype=torch.float32)
+        y_label = self.y_labels[index]
+
+        return x_feature, y_label
