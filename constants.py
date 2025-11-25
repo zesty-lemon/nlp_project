@@ -7,8 +7,6 @@ from pathlib import Path
 # File Operations
 BIG_BANG_THEORY_DIR = Path("data/big_bang_theory")
 NUM_SEASONS = 5
-BERT_EMBEDDINGS_DIR = Path("output/bert_embeddings.npy")
-S_BERT_EMBEDDINGS_DIR = Path("output/s_bert_embeddings.npy")
 
 # Runtime Parameters
 NUM_DIALOG_TURNS = 5
