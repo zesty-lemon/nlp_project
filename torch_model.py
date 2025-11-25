@@ -1,5 +1,6 @@
 import torch
 import constants as c
+from constants import BERT_MODEL
 import numpy as np
 
 
@@ -25,13 +26,13 @@ def setup():
     return device
 
 
-def load_data(bert_version="base"):
+def load_data(bert_version: BERT_MODEL):
 
     # Determine which version of BERT we want to collect the embeddings from
-    if bert_version == "base":
-        embedding_path = c.BASE_BERT_EMBEDDINGS
-    else:
-        embedding_path = c.SENTENCE_BERT_EMBEDDINGS
+    if bert_version is BERT_MODEL.BERT:
+        embedding_path = bert_version.value
+    elif bert_version is BERT_MODEL.S_BERT:
+        embedding_path = bert_version.value
 
     # Load vector embeddings from embeddings.npy file
     with open(embedding_path, "rb") as infile:
