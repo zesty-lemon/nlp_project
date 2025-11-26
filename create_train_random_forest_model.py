@@ -72,20 +72,33 @@ def read_features(model_selection: BERT_MODEL) -> Tuple[np.ndarray, np.ndarray]:
 def assess_classifier_performance(already_fitted_clf: RandomForestClassifier,
                                   Xtest: np.ndarray,
                                   ytest: np.ndarray,
-                                  classes: Dict[str, int],
+                                  classes: Dict[int, str],
                                   directory: str = None):
 
     ypred = already_fitted_clf.predict(Xtest)
 
     # evaluate model & print report
-    y_score = already_fitted_clf.predict_proba(Xtest)[:, 1]
-    fpr, tpr, _ = roc_curve(ytest, y_score)
+
+    # Find the numeric label for “humour”
+    positive_label = [k for k, v in classes.items() if v == "humour"][0]
+
+    # Find which column that label corresponds to in predict_proba
+    pos_idx = list(already_fitted_clf.classes_).index(positive_label)
+
+    # Calculate ROC with correct index
+    y_score = already_fitted_clf.predict_proba(Xtest)[:, pos_idx]
+    fpr, tpr, _ = roc_curve(ytest, y_score, pos_label=positive_label) # force positive label manually
     roc_auc = auc(fpr, tpr)
+
+    # Classification Report infers label order, this forces the order to be correct
+    labels = sorted(classes.keys())
+    target_names = [classes[l] for l in labels]
 
     report_str = classification_report(
         ytest,
         ypred,
-        target_names=list(classes.keys())
+        labels=labels,
+        target_names=target_names
     )
 
     print("----- Random Forest Classification Report -----")
@@ -137,7 +150,7 @@ def assess_classifier_performance(already_fitted_clf: RandomForestClassifier,
 def train_randomforest(clf: RandomForestClassifier,
                        X_features: np.ndarray,
                        y_labels: np.ndarray,
-                       classes: Dict[str, int],
+                       classes: Dict[int, str],
                        random_state: int = 42,
                        test_size=0.3,
                        report_directory: str = None) -> RandomForestClassifier:
@@ -330,12 +343,19 @@ def generate_model_analysis_report(Xtrain: np.ndarray,
                                    ytest: np.ndarray,
                                    already_fitted_clf: RandomForestClassifier,
                                    directory: str,
-                                   classes: Dict[str, int]):
+                                   classes: Dict[int, str]):
 
     # ---- Generate & Save ROC Chart to Directory ----
     # Get ROC/AUC and Plot It
-    y_score = already_fitted_clf.predict_proba(Xtest)[:, 1]
-    fpr, tpr, _ = roc_curve(ytest, y_score)
+    # Find the numeric label for “humour”
+    positive_label = [k for k, v in classes.items() if v == "humour"][0]
+
+    # Find which column that label corresponds to in predict_proba
+    pos_idx = list(already_fitted_clf.classes_).index(positive_label)
+
+    # Calculate ROC with correct index
+    y_score = already_fitted_clf.predict_proba(Xtest)[:, pos_idx]
+    fpr, tpr, _ = roc_curve(ytest, y_score, pos_label=positive_label) # force positive label manually
     roc_auc = auc(fpr, tpr)
 
     print(f"Random Forest AUC (test set): {roc_auc:.3f}")
@@ -370,12 +390,15 @@ def generate_model_analysis_report(Xtrain: np.ndarray,
     test_acc = accuracy_score(ytest, y_test_pred)
     print(f"Test accuracy (best model): {test_acc:.4f}")
 
-    # Classification Report
+    # Classification Report infers label order, this forces the order to be correct
+    labels = sorted(classes.keys())
+    target_names = [classes[l] for l in labels]
+
     report_str = classification_report(
         ytest,
         y_test_pred,
-        target_names=list(classes.keys())
-    )
+        labels=labels,
+        target_names=target_names)
 
     with open(report_path, "w", encoding="utf-8") as f:
         f.write("----- Random Forest Model Report -----\n")
@@ -389,7 +412,7 @@ def generate_model_analysis_report(Xtrain: np.ndarray,
 def perform_random_param_search(X_features: np.ndarray,
                                 y_labels: np.ndarray,
                                 directory: str,
-                                classes: Dict[str, int]) -> RandomForestClassifier:
+                                classes: Dict[int, str]) -> RandomForestClassifier:
     print("----- BEGIN Randomized Search CV -----")
 
     # Split into Test/Train sets
@@ -431,8 +454,6 @@ def create_new_trained_models(run_k_fold_validation: bool,
     os.makedirs(directory_to_save_models, exist_ok=True)
     write_model_used_to_file(directory_to_save_models, model_selection)
 
-    classes = {"humour": 1, "non_humour": 0}
-
     # Read features in from file
     X_features, y_labels = read_features(model_selection)
 
@@ -448,7 +469,7 @@ def create_new_trained_models(run_k_fold_validation: bool,
         clf = train_randomforest(clf,
                                  X_features,
                                  y_labels,
-                                 classes,
+                                 classes=c.CLASSES,
                                  report_directory=directory_to_save_models)
 
     # Perform Random Search
@@ -456,7 +477,7 @@ def create_new_trained_models(run_k_fold_validation: bool,
         perform_random_param_search(X_features,
                                     y_labels,
                                     directory=directory_to_save_models,
-                                    classes=classes)
+                                    classes=c.CLASSES)
 
 
 if __name__ == "__main__":
