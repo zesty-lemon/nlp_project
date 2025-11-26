@@ -1,9 +1,9 @@
 pandas
 numpy
 nltk
-transformers
 sentence_transformers
 torch
+torchsummary
 scikit-learn
 transformers
 matplotlib

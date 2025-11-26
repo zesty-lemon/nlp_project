@@ -1,6 +1,7 @@
 """
 Reusable Constants File
 """
+
 from enum import Enum
 from pathlib import Path
 
@@ -17,9 +18,13 @@ NUM_PRIMARY_COMPONENTS = 2
 # Can theoretically change this to be [SEP] or something different
 SEPARATOR = "<s>"
 
-# ground truth labels: Humour = 1, Non-Humour = 0
+# Ground truth labels: Humour = 1, Non-Humour = 0
 GT_HUMOUR = 1
 GT_NON_HUMOUR = 0
+
+# Pytorch Neural Network Constants
+BATCH_SIZE = 64
+
 
 # enum to store different BERT model choices
 # value = output directory of saved embeddings
