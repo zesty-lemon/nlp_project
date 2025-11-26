@@ -1,0 +1,35 @@
+Random Forest RandomizedSearchCV Report
+======================================
+
+Best configuration
+------------------
+bootstrap: True
+criterion: gini
+max_depth: 5
+max_features: sqrt
+min_samples_leaf: 1
+min_samples_split: 4
+n_estimators: 14
+
+Best mean CV accuracy: 0.7371
+
+Search space
+-----------
+{'n_estimators': <scipy.stats._distn_infrastructure.rv_discrete_frozen object at 0x13f63ce90>, 'max_depth': [None, 5, 10], 'min_samples_split': <scipy.stats._distn_infrastructure.rv_discrete_frozen object at 0x13f63de00>, 'min_samples_leaf': <scipy.stats._distn_infrastructure.rv_discrete_frozen object at 0x13fa2d6d0>, 'max_features': ['sqrt'], 'bootstrap': [True], 'criterion': ['gini']}
+
+All tried configurations (sorted by mean accuracy)
+-------------------------------------------------
+Rank 1
+  mean_train_accuracy: 0.8258
+  std_train_accuracy:  0.0128
+  mean_test_accuracy:  0.7371
+  std_test_accuracy:   0.0054
+  params:              {'bootstrap': True, 'criterion': 'gini', 'max_depth': 5, 'max_features': 'sqrt', 'min_samples_leaf': 1, 'min_samples_split': 4, 'n_estimators': 14}
+
+Rank 2
+  mean_train_accuracy: 0.8241
+  std_train_accuracy:  0.0134
+  mean_test_accuracy:  0.7345
+  std_test_accuracy:   0.0049
+  params:              {'bootstrap': True, 'criterion': 'gini', 'max_depth': 5, 'max_features': 'sqrt', 'min_samples_leaf': 1, 'min_samples_split': 4, 'n_estimators': 13}
+
