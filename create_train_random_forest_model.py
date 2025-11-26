@@ -36,16 +36,6 @@ def generate_run_dir_name() -> str:
     return f"{day}_{month}_{hour}_{minute}_{second}"
 
 
-# Write BERT variant used to file
-def write_model_used_to_file(filepath: str, model_selection: BERT_MODEL):
-    report_path = os.path.join(filepath, "embedding_model_selection_report.txt")
-    with open(report_path, "w", encoding="utf-8") as f:
-        f.write("Random Forest RandomizedSearchCV Report\n")
-        f.write("======================================\n\n")
-        f.write(f"BERT Model Used: {model_selection.name}\n")
-        f.write(f"BERT Model Embeddings Filepath: {model_selection.value}\n")
-
-
 # Read features in from file
 # split into features and labels
 def read_features(model_selection: BERT_MODEL) -> Tuple[np.ndarray, np.ndarray]:
@@ -65,99 +55,21 @@ def read_features(model_selection: BERT_MODEL) -> Tuple[np.ndarray, np.ndarray]:
     return X_features, y_labels
 
 
-
-# Run classification report to assess classifier performance
-# classifier should ALREADY be fitted
-# Also compute AUC and graph ROC
-def assess_classifier_performance(already_fitted_clf: RandomForestClassifier,
-                                  Xtest: np.ndarray,
-                                  ytest: np.ndarray,
-                                  classes: Dict[int, str],
-                                  directory: str = None):
-
-    ypred = already_fitted_clf.predict(Xtest)
-
-    # evaluate model & print report
-
-    # Find the numeric label for “humour”
-    positive_label = [k for k, v in classes.items() if v == "humour"][0]
-
-    # Find which column that label corresponds to in predict_proba
-    pos_idx = list(already_fitted_clf.classes_).index(positive_label)
-
-    # Calculate ROC with correct index
-    y_score = already_fitted_clf.predict_proba(Xtest)[:, pos_idx]
-    fpr, tpr, _ = roc_curve(ytest, y_score, pos_label=positive_label) # force positive label manually
-    roc_auc = auc(fpr, tpr)
-
-    # Classification Report infers label order, this forces the order to be correct
-    labels = sorted(classes.keys())
-    target_names = [classes[l] for l in labels]
-
-    report_str = classification_report(
-        ytest,
-        ypred,
-        labels=labels,
-        target_names=target_names
-    )
-
-    print("----- Random Forest Classification Report -----")
-    print(report_str)
-    print(f"AUC: {roc_auc:.3f}")
-
-    # Save Report & Model
-    if directory is not None:
-        os.makedirs(directory, exist_ok=True)
-
-        # Create & Save Report
-        report_path = os.path.join(directory, "random_forest_model_report.txt")
-        with open(report_path, "w", encoding="utf-8") as f:
-            f.write("------------ Random Forest Report------------\n")
-            f.write("=============================================\n\n")
-            f.write("Classifier parameters\n")
-            f.write("---------------------\n")
-            for k, v in already_fitted_clf.get_params().items():
-                f.write(f"{k}: {v}\n")
-            f.write("\n")
-
-            f.write("Classification report\n")
-            f.write("---------------------\n")
-            f.write(report_str + "\n\n")
-
-            f.write("ROC / AUC\n")
-            f.write("---------\n")
-            f.write(f"AUC: {roc_auc:.4f}\n")
-
-        print(f"Saved Random Forest report to: {report_path}")
-
-    # Save model to same directory
-        model_path = os.path.join(directory, "random_forest_model.joblib")
-        joblib.dump(already_fitted_clf, model_path)
-        print(f"Saved Random Forest model to: {model_path}")
-
-    # Plot ROC
-    plot_filepath = os.path.join(directory, "roc_curve")
-    RocCurveDisplay(fpr=fpr, tpr=tpr, roc_auc=roc_auc, name="RandomForest").plot()
-    plt.plot([0, 1], [0, 1], linestyle="--", linewidth=1)
-    plt.title("ROC Curve (Hold-out Split)")
-    plt.grid(True, linestyle="--", alpha=0.3)
-    plt.tight_layout()
-    plt.savefig(plot_filepath)
-    plt.show()
-
-
 # Train and test a random forest model with a simple test/training split
 def train_randomforest(clf: RandomForestClassifier,
                        X_features: np.ndarray,
                        y_labels: np.ndarray,
                        classes: Dict[int, str],
+                       model_selection: BERT_MODEL,
                        random_state: int = 42,
                        test_size=0.3,
                        report_directory: str = None) -> RandomForestClassifier:
 
     print("---- BEGIN Training Random Forest Classifier ---")
-    Xtrain, Xtest, ytrain, ytest = train_test_split(
-        X_features, y_labels, test_size=test_size, stratify=y_labels,
+    Xtrain, Xtest, ytrain, ytest = train_test_split(X_features,
+                                                    y_labels,
+                                                    test_size=test_size,
+                                                    stratify=y_labels,
         random_state=random_state
     )
 
@@ -165,13 +77,19 @@ def train_randomforest(clf: RandomForestClassifier,
     clf.fit(Xtrain, ytrain)
     # Print Performance Metrics
     full_output_dir = os.path.join(report_directory, "manually_instantiated_model")
+    os.makedirs(full_output_dir, exist_ok=True)
 
-    assess_classifier_performance(clf,
-                                  Xtest,
-                                  ytest,
-                                  classes,
-                                  directory=full_output_dir)
+    generate_model_analysis_report(Xtrain,
+                                   Xtest,
+                                   ytrain,
+                                   ytest,
+                                   clf,
+                                   full_output_dir,
+                                   classes,
+                                   model_selection = model_selection)
 
+
+    joblib.dump(clf, f'{full_output_dir}/random_forest_model.joblib')
 
     print("---- END Training Random Forest Classifier ---")
     return clf
@@ -181,8 +99,10 @@ def train_randomforest(clf: RandomForestClassifier,
 def perform_k_fold_randomforest(X_features: np.ndarray,
                                 y_labels: np.ndarray,
                                 report_directory: str,
+                                model_selection: BERT_MODEL,
                                 n_estimators: int = 200,
                                 random_state: int = 42):
+
     print(f"---- BEGIN Cross Validation (Random Forest) ----")
     # Run Cross Validation and get scores
     cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=random_state)
@@ -203,6 +123,7 @@ def perform_k_fold_randomforest(X_features: np.ndarray,
     with open(report_path, "w", encoding="utf-8") as f:
         f.write("Random Forest K-Fold Cross-Validation Report\n")
         f.write("===========================================\n\n")
+        f.write(f"Embedding Used: {model_selection.name}\n")
         f.write(f"n_estimators: {n_estimators}\n")
         f.write(f"random_state: {random_state}\n")
         f.write(f"n_splits: {cv.get_n_splits()}\n\n")
@@ -343,8 +264,8 @@ def generate_model_analysis_report(Xtrain: np.ndarray,
                                    ytest: np.ndarray,
                                    already_fitted_clf: RandomForestClassifier,
                                    directory: str,
-                                   classes: Dict[int, str]):
-
+                                   classes: Dict[int, str],
+                                   model_selection: BERT_MODEL):
     # ---- Generate & Save ROC Chart to Directory ----
     # Get ROC/AUC and Plot It
     # Find the numeric label for “humour”
@@ -357,8 +278,6 @@ def generate_model_analysis_report(Xtrain: np.ndarray,
     y_score = already_fitted_clf.predict_proba(Xtest)[:, pos_idx]
     fpr, tpr, _ = roc_curve(ytest, y_score, pos_label=positive_label) # force positive label manually
     roc_auc = auc(fpr, tpr)
-
-    print(f"Random Forest AUC (test set): {roc_auc:.3f}")
 
     # Plot ROC
     plt.figure(figsize=(6, 6))
@@ -377,40 +296,61 @@ def generate_model_analysis_report(Xtrain: np.ndarray,
     # ---- Generate & Save Report to Directory ----
 
     # Make directory & path to store final report
-    os.makedirs(directory, exist_ok=True)
     report_path = os.path.join(directory, "random_forest_model_report.txt")
+
+    # Statistics on Class Distribution (Training Set)
+    train_humour_class_count = np.sum(ytrain == c.GT_HUMOUR)
+    train_non_humour_class_count = np.sum(ytrain == c.GT_NON_HUMOUR)
+    training_total_classes = train_humour_class_count + train_non_humour_class_count
+    training_humour_class_percent = round((train_humour_class_count / training_total_classes) * 100,1)
+    training_non_humour_class_percent = round((train_non_humour_class_count / training_total_classes) * 100,1)
+
+    # Statistics on Class Distribution (Test Set)
+    test_humour_class_count = np.sum(ytest == c.GT_HUMOUR)
+    test_non_humour_class_count = np.sum(ytest == c.GT_NON_HUMOUR)
+    test_total_classes = test_humour_class_count + test_non_humour_class_count
+    test_humour_class_percent = round((test_humour_class_count / test_total_classes) * 100, 1)
+    test_non_humour_class_percent = round((test_non_humour_class_count / test_total_classes) * 100,1)
 
     # Training accuracy
     y_train_pred = already_fitted_clf.predict(Xtrain)
     train_acc = accuracy_score(ytrain, y_train_pred)
-    print(f"Training accuracy (best model): {train_acc:.4f}")
 
     # Test accuracy
     y_test_pred = already_fitted_clf.predict(Xtest)
     test_acc = accuracy_score(ytest, y_test_pred)
-    print(f"Test accuracy (best model): {test_acc:.4f}")
 
     # Classification Report infers label order, this forces the order to be correct
     labels = sorted(classes.keys())
     target_names = [classes[l] for l in labels]
 
+    # Generate Classification Report
     report_str = classification_report(
         ytest,
         y_test_pred,
         labels=labels,
         target_names=target_names)
 
+    # Build .txt file to save final report
     with open(report_path, "w", encoding="utf-8") as f:
         f.write("----- Random Forest Model Report -----\n")
         f.write("======================================\n\n")
+        f.write(f"Embedding Used: {model_selection.name}\n")
+        f.write("--------- Performance Metrics --------\n")
         f.write(f"Training accuracy: {train_acc:.4f}\n")
         f.write(f"Test accuracy: {test_acc:.4f}\n")
         f.write(f"Random Forest AUC (Test Set): {roc_auc:.3f}\n\n")
         f.write(f"Classification Report: \n{report_str}\n")
+        f.write("----------- General Metrics ----------\n")
+        f.write(f"Train Set Instances of Humor Class: {train_humour_class_count} ({training_humour_class_percent})\n")
+        f.write(f"Train Set Instances of Non-Humor Class: {train_non_humour_class_count} ({training_non_humour_class_percent})\n")
+        f.write(f"Test Set Instances of Humor Class: {test_humour_class_count} ({test_humour_class_percent})\n")
+        f.write(f"Test Set Instances of Non-Humor Class: {test_non_humour_class_count} ({test_non_humour_class_percent})\n")
 
 # run random search and save best result to file
 def perform_random_param_search(X_features: np.ndarray,
                                 y_labels: np.ndarray,
+                                model_selection: BERT_MODEL,
                                 directory: str,
                                 classes: Dict[int, str]) -> RandomForestClassifier:
     print("----- BEGIN Randomized Search CV -----")
@@ -435,7 +375,8 @@ def perform_random_param_search(X_features: np.ndarray,
     joblib.dump(clf, f'{output_dir}/random_forest_model.joblib')
 
     # Generate Report about our best model found with Random Search
-    generate_model_analysis_report(Xtrain, Xtest, ytrain, ytest,clf,output_dir, classes)
+    os.makedirs(output_dir, exist_ok=True)
+    generate_model_analysis_report(Xtrain, Xtest, ytrain, ytest,clf,output_dir, classes, model_selection)
 
     print("----- END Randomized Search CV -----")
     return clf
@@ -452,7 +393,6 @@ def create_new_trained_models(run_k_fold_validation: bool,
     )
 
     os.makedirs(directory_to_save_models, exist_ok=True)
-    write_model_used_to_file(directory_to_save_models, model_selection)
 
     # Read features in from file
     X_features, y_labels = read_features(model_selection)
@@ -461,6 +401,7 @@ def create_new_trained_models(run_k_fold_validation: bool,
     if run_k_fold_validation:
         perform_k_fold_randomforest(X_features,
                                     y_labels,
+                                    model_selection=model_selection,
                                     report_directory=directory_to_save_models)
 
     # Fit Random Forest Model
@@ -469,6 +410,7 @@ def create_new_trained_models(run_k_fold_validation: bool,
         clf = train_randomforest(clf,
                                  X_features,
                                  y_labels,
+                                 model_selection = model_selection,
                                  classes=c.CLASSES,
                                  report_directory=directory_to_save_models)
 
@@ -476,19 +418,20 @@ def create_new_trained_models(run_k_fold_validation: bool,
     if run_random_param_search:
         perform_random_param_search(X_features,
                                     y_labels,
+                                    model_selection = model_selection,
                                     directory=directory_to_save_models,
                                     classes=c.CLASSES)
 
 
 if __name__ == "__main__":
     # # Create trained model with BERT embeddings
-    # create_new_trained_models(run_k_fold_validation=True,
-    #                           run_new_simple_rf_classifier=True,
-    #                           run_random_param_search=True,
-    #                           model_selection=BERT_MODEL.BERT)
+    create_new_trained_models(run_k_fold_validation=True,
+                              run_new_simple_rf_classifier=True,
+                              run_random_param_search=True,
+                              model_selection=BERT_MODEL.BERT)
 
     # Create trained model with Sentence Bert embeddings
-    create_new_trained_models(run_k_fold_validation=False,
-                              run_new_simple_rf_classifier=False,
+    create_new_trained_models(run_k_fold_validation=True,
+                              run_new_simple_rf_classifier=True,
                               run_random_param_search=True,
                               model_selection=BERT_MODEL.S_BERT)
