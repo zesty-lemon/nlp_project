@@ -69,16 +69,16 @@ def read_features(model_selection: BERT_MODEL) -> Tuple[np.ndarray, np.ndarray]:
 # Run classification report to assess classifier performance
 # classifier should ALREADY be fitted
 # Also compute AUC and graph ROC
-def assess_classifier_performance(clf: RandomForestClassifier,
+def assess_classifier_performance(already_fitted_clf: RandomForestClassifier,
                                   Xtest: np.ndarray,
                                   ytest: np.ndarray,
                                   classes: Dict[str, int],
                                   directory: str = None):
 
-    ypred = clf.predict(Xtest)
+    ypred = already_fitted_clf.predict(Xtest)
 
     # evaluate model & print report
-    y_score = clf.predict_proba(Xtest)[:, 1]
+    y_score = already_fitted_clf.predict_proba(Xtest)[:, 1]
     fpr, tpr, _ = roc_curve(ytest, y_score)
     roc_auc = auc(fpr, tpr)
 
@@ -97,13 +97,13 @@ def assess_classifier_performance(clf: RandomForestClassifier,
         os.makedirs(directory, exist_ok=True)
 
         # Create & Save Report
-        report_path = os.path.join(directory, "random_forest_manual_split_report.txt")
+        report_path = os.path.join(directory, "random_forest_model_report.txt")
         with open(report_path, "w", encoding="utf-8") as f:
             f.write("------------ Random Forest Report------------\n")
             f.write("=============================================\n\n")
             f.write("Classifier parameters\n")
             f.write("---------------------\n")
-            for k, v in clf.get_params().items():
+            for k, v in already_fitted_clf.get_params().items():
                 f.write(f"{k}: {v}\n")
             f.write("\n")
 
@@ -119,7 +119,7 @@ def assess_classifier_performance(clf: RandomForestClassifier,
 
     # Save model to same directory
         model_path = os.path.join(directory, "random_forest_model.joblib")
-        joblib.dump(clf, model_path)
+        joblib.dump(already_fitted_clf, model_path)
         print(f"Saved Random Forest model to: {model_path}")
 
     # Plot ROC
@@ -210,9 +210,9 @@ def perform_k_fold_randomforest(X_features: np.ndarray,
 def run_random_param_search(X_train: np.ndarray,
                             y_train: np.ndarray,
                             directory: str) -> sklearn.ensemble.RandomForestClassifier:
-    print("----- BEGIN Randomized Search CV -----")
-    # define the estimator
-    # rf_classifier = RandomForestClassifier(random_state=42)
+    # # define the estimator
+    # rf_classifier = RandomForestClassifier(random_state=42,
+    #                                        class_weight="balanced")
     #
     # # define the parameter distributions
     # param_distributions = {
@@ -224,7 +224,7 @@ def run_random_param_search(X_train: np.ndarray,
     #     "bootstrap": [True, False],
     #     "criterion": ["gini", "entropy", "log_loss"],
     # }
-    #
+    # #
     # # create the RandomizedSearchCV object
     # random_search = RandomizedSearchCV(
     #     estimator=rf_classifier,
@@ -240,6 +240,7 @@ def run_random_param_search(X_train: np.ndarray,
 
     rf_classifier = RandomForestClassifier(
         random_state=42,
+        class_weight="balanced",
         n_estimators=10,
         max_depth=5
     )
@@ -276,9 +277,8 @@ def run_random_param_search(X_train: np.ndarray,
 
     print(f"Best parameters: {best_params}")
     print(f"Best CV score: {best_score:.4f}")
-    print("----- Completed Randomized Search CV -----")
 
-    # ---- Save report to directory ----
+    # ---- Generate & Save Report to Directory ----
     os.makedirs(directory, exist_ok=True)
     report_path = os.path.join(directory, "random_forest_random_search_report.txt")
     # Get Results from Random Forest Searc
@@ -319,59 +319,102 @@ def run_random_param_search(X_train: np.ndarray,
             f.write(f"  params:              {params_list[idx]}\n\n")
 
     print(f"Saved random search report to: {report_path}")
-    print("----- END Randomized Search CV -----")
     return random_search.best_estimator_
 
 
-# run random search and save best result to file
-def perform_random_param_search(X_features: np.ndarray,
-                                y_labels: np.ndarray,
-                                directory: str) -> RandomForestClassifier:
-    # Split into Test/Train sets
-    Xtrain, Xtest, ytrain, ytest = train_test_split(
-        X_features, y_labels, test_size=0.3, stratify=y_labels,
-        random_state=42
-    )
-    # make the output directory
-    output_dir = directory + "/random_search_model/"
-    os.makedirs(output_dir, exist_ok=True)
+# Generate & Save a report about a fitted classifier
+# Statics such as test/train accuracy & ROC curve
+def generate_model_analysis_report(Xtrain: np.ndarray,
+                                   Xtest: np.ndarray,
+                                   ytrain: np.ndarray,
+                                   ytest: np.ndarray,
+                                   already_fitted_clf: RandomForestClassifier,
+                                   directory: str,
+                                   classes: Dict[str, int]):
 
-    clf = run_random_param_search(Xtrain, ytrain, output_dir)
-
-    # Training accuracy
-    y_train_pred = clf.predict(Xtrain)
-    train_acc = accuracy_score(ytrain, y_train_pred)
-    print(f"Training accuracy (best model): {train_acc:.4f}")
-
-    # Test accuracy
-    y_test_pred = clf.predict(Xtest)
-    test_acc = accuracy_score(ytest, y_test_pred)
-    print(f"Test accuracy (best model): {test_acc:.4f}")
-
-    # Save best model to file
-    joblib.dump(clf, f'{output_dir}/random_forest_model.joblib')
-
+    # ---- Generate & Save ROC Chart to Directory ----
     # Get ROC/AUC and Plot It
-    y_score = clf.predict_proba(Xtest)[:, 1]
+    y_score = already_fitted_clf.predict_proba(Xtest)[:, 1]
     fpr, tpr, _ = roc_curve(ytest, y_score)
     roc_auc = auc(fpr, tpr)
 
-    print(f"Random search best model AUC (test set): {roc_auc:.3f}")
+    print(f"Random Forest AUC (test set): {roc_auc:.3f}")
 
-    # Plot ROC (matching your existing style)
+    # Plot ROC
     plt.figure(figsize=(6, 6))
     RocCurveDisplay(fpr=fpr, tpr=tpr, roc_auc=roc_auc, name="RandomForest").plot()
     plt.plot([0, 1], [0, 1], linestyle="--", linewidth=1)
-    plt.title("ROC Curve (Random Search Best Model)")
+    plt.title("ROC Curve (Random Forest Model)\nBig Bang Theory Humour Classification")
     plt.grid(True, linestyle="--", alpha=0.3)
     plt.tight_layout()
 
     # Save ROC to file
-    plot_filepath = os.path.join(output_dir, "roc_curve_random_search.png")
+    plot_filepath = os.path.join(directory, "roc_curve_random_search.png")
     plt.savefig(plot_filepath)
     plt.close()
     print(f"Saved ROC curve to: {plot_filepath}")
 
+    # ---- Generate & Save Report to Directory ----
+
+    # Make directory & path to store final report
+    os.makedirs(directory, exist_ok=True)
+    report_path = os.path.join(directory, "random_forest_model_report.txt")
+
+    # Training accuracy
+    y_train_pred = already_fitted_clf.predict(Xtrain)
+    train_acc = accuracy_score(ytrain, y_train_pred)
+    print(f"Training accuracy (best model): {train_acc:.4f}")
+
+    # Test accuracy
+    y_test_pred = already_fitted_clf.predict(Xtest)
+    test_acc = accuracy_score(ytest, y_test_pred)
+    print(f"Test accuracy (best model): {test_acc:.4f}")
+
+    # Classification Report
+    report_str = classification_report(
+        ytest,
+        y_test_pred,
+        target_names=list(classes.keys())
+    )
+
+    with open(report_path, "w", encoding="utf-8") as f:
+        f.write("----- Random Forest Model Report -----\n")
+        f.write("======================================\n\n")
+        f.write(f"Training accuracy: {train_acc:.4f}\n")
+        f.write(f"Test accuracy: {test_acc:.4f}\n")
+        f.write(f"Random Forest AUC (Test Set): {roc_auc:.3f}\n\n")
+        f.write(f"Classification Report: \n{report_str}\n")
+
+# run random search and save best result to file
+def perform_random_param_search(X_features: np.ndarray,
+                                y_labels: np.ndarray,
+                                directory: str,
+                                classes: Dict[str, int]) -> RandomForestClassifier:
+    print("----- BEGIN Randomized Search CV -----")
+
+    # Split into Test/Train sets
+    Xtrain, Xtest, ytrain, ytest = train_test_split(
+        X_features,
+        y_labels,
+        test_size=0.3,
+        stratify=y_labels, # classes are unbalanced this keeps proportions (prevents a split from having 0 of a class)
+        random_state=42,
+    )
+
+    # Make the output directory to store model & report
+    output_dir = directory + "/random_search_model/"
+    os.makedirs(output_dir, exist_ok=True)
+
+    # Run random search for best configuration of parameters
+    clf = run_random_param_search(Xtrain, ytrain, output_dir)
+
+    # Save best model to file
+    joblib.dump(clf, f'{output_dir}/random_forest_model.joblib')
+
+    # Generate Report about our best model found with Random Search
+    generate_model_analysis_report(Xtrain, Xtest, ytrain, ytest,clf,output_dir, classes)
+
+    print("----- END Randomized Search CV -----")
     return clf
 
 
@@ -412,7 +455,8 @@ def create_new_trained_models(run_k_fold_validation: bool,
     if run_random_param_search:
         perform_random_param_search(X_features,
                                     y_labels,
-                                    directory=directory_to_save_models)
+                                    directory=directory_to_save_models,
+                                    classes=classes)
 
 
 if __name__ == "__main__":
