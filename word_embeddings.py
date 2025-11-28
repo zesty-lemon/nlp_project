@@ -313,7 +313,21 @@ def get_embeddings_and_labels_for_model(model_selection: BERT_MODEL,
     return df
 
 
+# Refresh BERT and S BERT embeddings
+# WARNING - VERY SLOW
+# ONLY DO IF NEEDED
+def refresh_model_embeddings():
+    get_embeddings_and_labels_for_model(model_selection=BERT_MODEL.S_BERT,
+                                                        use_cached_embeddings=False)
+
+    get_embeddings_and_labels_for_model(model_selection=BERT_MODEL.BERT,
+                                                        use_cached_embeddings=False)
+
+
 if __name__ == "__main__":
+    refresh_model_embeddings()
+
     orchestrate_embeddings_and_pca(model_selection = BERT_MODEL.S_BERT,
                                    use_cached_embeddings=False,
                                    show_and_save_plots=True)
+
