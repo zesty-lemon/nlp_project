@@ -30,7 +30,7 @@ BATCH_SIZE = 64
 
 
 # enum to store different BERT model choices
-# value = output directory of saved embeddings
+# value = bert_embeddings directory of saved embeddings
 class BERT_MODEL(Enum):
-    BERT = "output/bert_embeddings.npy"
-    S_BERT = "output/s_bert_embeddings.npy"
+    BERT = "bert_embeddings/bert_embeddings.npy"
+    S_BERT = "bert_embeddings/s_bert_embeddings.npy"

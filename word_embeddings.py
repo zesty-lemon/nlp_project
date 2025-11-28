@@ -269,9 +269,9 @@ def perform_cached_embeddings_and_pca(model_selection: BERT_MODEL,
 def orchestrate_embeddings_and_pca(model_selection: BERT_MODEL,
                                    use_cached_embeddings: bool = True,
                                    show_and_save_plots: bool = True):
-    # Make output file if not already present
+    # Make bert_embeddings file if not already present
     make_empty_file_if_not_exists(model_selection.value)
-    # Check if output file is empty (if cached data not present)
+    # Check if bert_embeddings file is empty (if cached data not present)
     cached_embeddings_present = os.stat(model_selection.value).st_size != 0
     # If embeddings are not present or we want to override cache
     if (not cached_embeddings_present) or (not use_cached_embeddings):

@@ -23,7 +23,7 @@ import word_embeddings
 from constants import BERT_MODEL
 
 
-# Get unique name for output directory
+# Get unique name for bert_embeddings directory
 def generate_run_dir_name(model_selection: BERT_MODEL) -> str:
     now = datetime.now()
 
@@ -379,7 +379,7 @@ def perform_random_param_search(X_features: np.ndarray,
         random_state=42,
     )
 
-    # Make the output directory to store model & report
+    # Make the bert_embeddings directory to store model & report
     output_dir = directory + "/random_search_model/"
     os.makedirs(output_dir, exist_ok=True)
 
