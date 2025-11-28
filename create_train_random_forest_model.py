@@ -453,11 +453,11 @@ if __name__ == "__main__":
                               run_new_simple_rf_classifier=True,
                               run_random_param_search=True,
                               model_selection=BERT_MODEL.BERT,
-                              use_dummy_parameters=True)
+                              use_dummy_parameters=False)
 
     # Create trained model with Sentence Bert embeddings
     create_new_trained_models(run_k_fold_validation=True,
                               run_new_simple_rf_classifier=True,
                               run_random_param_search=True,
                               model_selection=BERT_MODEL.S_BERT,
-                              use_dummy_parameters=True)
+                              use_dummy_parameters=False)
