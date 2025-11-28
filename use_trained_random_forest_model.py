@@ -43,43 +43,46 @@ def pick_bert_model_classifier(path_to_model: str):
         return s_bert_classifier
 
 
-# Example of usage to take a string input, get its BERT (or SBERT) embedding, and classify it
-def example_usage(model_path: str):
+# Switch the embeddings used (BERT or S-BERT by specifying different model path)
+def predict_humour_of_text(model_path: str, input_text: str) -> bool:
     # Step 1: Get the Classifier
     classifier = pick_bert_model_classifier(model_path)
 
-    # Step 2: Example input
+    # Step 2: Convert Input to list
+    input_text_as_list = [input_text]
+
+    # Step 3: Get embedding of input
+    input_embedding_array = run_burt_model(model_path, input_text_as_list)
+
+    # Step 4: Convert the BERT embedding output to the input expected by the classifier
+    input_embedding = np.vstack(input_embedding_array).astype(np.float32)
+    input_embedding = np.array(input_embedding)
+
+    # Step 5: Classify Input
+    is_input_funny = classifier.predict(input_embedding) == 1
+
+    print(f"Is Input Funny? {is_input_funny}")
+    proba = classifier.predict_proba(input_embedding)[0]
+    print("      Classes:", classifier.classes_)
+    print("Probabilities:  ", proba)
+
+    return is_input_funny
+
+
+if __name__ == "__main__":
+    # ---------- Example Usage ----------
+    # Take some input text, and classify it as humourous or non-humourous
+
     example_text = ("Look at me i'm sheldon i'm so nerdy and smart."
                     "That's so true! I also struggle around women in a mildly creepy way."
                     "should we ask a real live girl out using a Star Trek reference?"
                     "As Spock says - Live Long and Prosper."
                     "Can a date be part of the prospering?")
 
-    # Step 3: Convert Input to list
-    example_text_as_list = [example_text]
-
-    # Step 4: Get embedding of input
-    example_embedding_array = run_burt_model(model_path, example_text_as_list)
-
-    # Step 5: Convert the BERT embedding output to the input expected by the classifier
-    example_embedding = np.vstack(example_embedding_array).astype(np.float32)
-    example_embedding = np.array(example_embedding)
-
-    # Step 6: Classify Input
-    is_example_funny = classifier.predict(example_embedding) == 1
-
-    print(f"Is Example Funny? {is_example_funny}")
-
-    proba = classifier.predict_proba(example_embedding)[0]
-    print("      Classes:", classifier.classes_)
-    print("Probabilities:  ", proba)
-
-if __name__ == "__main__":
-    # Running with S BERT
+    # Example 1: Running with S BERT
     print("Running with S Bert")
-    example_usage(path_to_s_bert_model)
-    # Running with Bert
-    print("Running with Normal Bert")
-    example_usage(path_to_bert_model)
+    predict_humour_of_text(path_to_s_bert_model, example_text)
 
-# TODO: Why does this always return true?  Is it overfitting or what's the deal?
+    # Example 2: Running with Bert
+    print("Running with Normal Bert")
+    predict_humour_of_text(path_to_bert_model, example_text)
