@@ -70,11 +70,15 @@ def example_usage(model_path: str):
 
     print(f"Is Example Funny? {is_example_funny}")
 
+    proba = classifier.predict_proba(example_embedding)[0]
+    print("      Classes:", classifier.classes_)
+    print("Probabilities:  ", proba)
+
 if __name__ == "__main__":
     # Running with S BERT
     print("Running with S Bert")
     example_usage(path_to_s_bert_model)
-    # RUnning with Bert
+    # Running with Bert
     print("Running with Normal Bert")
     example_usage(path_to_bert_model)
 
