@@ -74,8 +74,3 @@ if __name__ == "__main__":
     # RUnning with Bert
     print("Running with Normal Bert")
     example_usage(path_to_bert_model)
-
-# TODO: this can be faster.  Right now we are re-loading the classifier from a file every time we want
-# to do a classification.  Very slow.  We should do it once for each classifier (bert/sbert)
-# and then hit the same classifier every time
-# move to top of class maybe?  Or run outside of main?
