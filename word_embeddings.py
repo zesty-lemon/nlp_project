@@ -325,9 +325,12 @@ def refresh_model_embeddings():
 
 
 if __name__ == "__main__":
-    # refresh_model_embeddings()
+    refresh_model_embeddings()
 
     orchestrate_embeddings_and_pca(model_selection = BERT_MODEL.S_BERT,
                                    use_cached_embeddings=False,
                                    show_and_save_plots=True)
 
+    orchestrate_embeddings_and_pca(model_selection = BERT_MODEL.BERT,
+                                   use_cached_embeddings=False,
+                                   show_and_save_plots=True)
