@@ -17,6 +17,17 @@ from transformers import BertModel, BertTokenizer
 from sentence_transformers import SentenceTransformer
 from corpus_utils import get_everything
 
+# BERT and SBERT Model Initilization
+# if initalzied outside of method they only need to be loaded into memory once
+# Load pretrained tokenizer
+bert_tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
+# Load pretrained model
+bert_model = BertModel.from_pretrained("bert-base-uncased")
+bert_model.eval()
+
+# Load pre-trained model
+s_bert_model = SentenceTransformer("all-MiniLM-L6-v2")
+s_bert_model.eval()
 
 # if file or directories do not exist make both directories and empty file
 def make_empty_file_if_not_exists(path: str):
@@ -45,21 +56,14 @@ def get_classic_bert_embedding(text, tokenizer: BertTokenizer, model: BertModel)
 # perform and return bert embeddings
 # performed on whole episodes worth of dialogs at once
 def perform_classic_bert_embedding(dialogs: list[str]) -> list[np.ndarray]:
-    # Load pre - trained tokenizer
-    tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
-    # Load pre - trained model
-    model = BertModel.from_pretrained("bert-base-uncased")
-    model.eval()
-
     embeddings = []
+    # Run BERT separately for every dialog
+    for dialog_index in tqdm(range(0, len(dialogs)),
+                             desc="Performing BERT Embedding",
+                             unit=" dialogs",
+                             colour="blue"):
 
-    for dialog_index in tqdm(
-        range(0, len(dialogs)),
-        desc="Performing BERT Embedding",
-        unit=" dialogs",
-        colour="blue",
-    ):
-        bert_embedding = get_classic_bert_embedding(dialogs[dialog_index], tokenizer, model)
+        bert_embedding = get_classic_bert_embedding(dialogs[dialog_index], bert_tokenizer, bert_model)
         embeddings.append(bert_embedding)
 
     return embeddings
@@ -77,10 +81,6 @@ def get_sbert_embeddings(texts: list[str], model: SentenceTransformer, print_sta
 
 # perform and return SBERT embeddings (batched)
 def perform_sentence_bert_embedding(dialogs: list[str], batch_size: int = 32) -> list[np.ndarray]:
-    # Load pre-trained model
-    model = SentenceTransformer("all-MiniLM-L6-v2")
-    model.eval()
-
     embeddings = []
 
     for start_idx in tqdm(
@@ -92,7 +92,7 @@ def perform_sentence_bert_embedding(dialogs: list[str], batch_size: int = 32) ->
         # Batch embeddings for speed
         batch = dialogs[start_idx : start_idx + batch_size]
         # encode entire batch at once
-        batch_embeddings = get_sbert_embeddings(batch, model)
+        batch_embeddings = get_sbert_embeddings(batch, s_bert_model)
 
         for emb in batch_embeddings:
             embeddings.append(emb)
@@ -325,7 +325,7 @@ def refresh_model_embeddings():
 
 
 if __name__ == "__main__":
-    refresh_model_embeddings()
+    # refresh_model_embeddings()
 
     orchestrate_embeddings_and_pca(model_selection = BERT_MODEL.S_BERT,
                                    use_cached_embeddings=False,
