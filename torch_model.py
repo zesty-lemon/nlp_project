@@ -117,19 +117,16 @@ def train(dataloader, model, loss_fn, optimizer, device):
 
         # Compute prediction error
         output = model(x_features)
-        pred = torch.round(output)
-        # TODO: Can't figure out best input shape or why our loss function is having issues. potentially try explicit BCEloss function?
-        print(f"Min, Max: {y_labels.min(), y_labels.max()}")
-        print(pred.shape)
-        print(y_labels.shape)
+        pred = torch.squeeze(output)
         loss = loss_fn(pred, y_labels)
 
         # Backpropagation
         loss.backward()
         optimizer.step()
+        # Reset the gradient
         optimizer.zero_grad()
 
-        if batch % 100 == 0:
+        if batch % 10 == 0:
             loss, current = loss.item(), (batch + 1) * len(x_features)
             print(f"loss: {loss:>7f}  [{current:>5d}/{size:>5d}]")
 
@@ -138,15 +135,18 @@ def train(dataloader, model, loss_fn, optimizer, device):
 def test(dataloader, model, loss_fn, device):
     size = len(dataloader.dataset)
     num_batches = len(dataloader)
+
+    print(f"Test Size: {size} + Num_Batches: {num_batches}")
+
     model.eval()
     test_loss, correct = 0, 0
     with torch.no_grad():
         for x_features, y_labels in dataloader:
             x_features, y_labels = x_features.to(device), y_labels.to(device)
             output = model(x_features)
-            pred = torch.round(output)
+            pred = torch.squeeze(output)
             test_loss += loss_fn(pred, y_labels).item()
-            correct += (pred.argmax(1) == y_labels).type(torch.float).sum().item()
+            correct += (pred.round() == y_labels).sum().item()
     test_loss /= num_batches
     correct /= size
 
@@ -158,6 +158,7 @@ def test(dataloader, model, loss_fn, device):
 # Validation function
 def evaluate(data_loader, model, device):
     model.eval()
+    humor_preds = 0
     correct_predictions = 0
     total_predictions = 0
 
@@ -166,10 +167,16 @@ def evaluate(data_loader, model, device):
         for inputs, labels in data_loader:
             inputs, labels = inputs.to(device), labels.to(device)
             output = model(inputs)
-            prediction = torch.round(output)
+            prediction = torch.squeeze(output).round()
+
+            humor_preds += torch.sum(prediction)
             correct_predictions += (prediction == labels).sum().item()
             total_predictions += labels.size(0)
 
+    print(f"Total Preds: {total_predictions}")
+    print(
+        f"{humor_preds} humourous and {total_predictions - humor_preds} non-humourous"
+    )
     print(f"Validation Accuracy: {correct_predictions / total_predictions}")
 
 
@@ -186,7 +193,7 @@ if __name__ == "__main__":
     model = NN().to(device)
     # print(f"Model summary : \n{summary(model, (64, 768))}")
 
-    loss_fn = nn.CrossEntropyLoss()
+    loss_fn = nn.BCELoss()
     optimizer = torch.optim.SGD(model.parameters(), lr=1e-3)
 
     # Train for n epochs on the train and test data

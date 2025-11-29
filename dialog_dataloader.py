@@ -22,6 +22,6 @@ class DialogDataset(Dataset):
         # Return a dictionary with 'features' and 'label' as keys
 
         x_feature = torch.tensor(self.x_features[index], dtype=torch.float32)
-        y_label = torch.tensor(self.y_labels[index], dtype=torch.long)
+        y_label = torch.tensor(self.y_labels[index], dtype=torch.float32)
 
         return x_feature, y_label
