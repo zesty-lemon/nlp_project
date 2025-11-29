@@ -4,7 +4,6 @@ import torch
 import os
 
 from numpy import ndarray
-from sympy import false
 
 import constants as c
 from constants import BERT_MODEL
@@ -18,9 +17,20 @@ from transformers import BertModel, BertTokenizer
 from sentence_transformers import SentenceTransformer
 from corpus_utils import get_everything
 
+# BERT and SBERT Model Initilization
+# if initalzied outside of method they only need to be loaded into memory once
+# Load pretrained tokenizer
+bert_tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
+# Load pretrained model
+bert_model = BertModel.from_pretrained("bert-base-uncased")
+bert_model.eval()
+
+# Load pre-trained model
+s_bert_model = SentenceTransformer("all-MiniLM-L6-v2")
+s_bert_model.eval()
 
 # if file or directories do not exist make both directories and empty file
-def make_empty_file_if_not_exists(path: str) -> bool:
+def make_empty_file_if_not_exists(path: str):
     # Make parent directories
     os.makedirs(os.path.dirname(path), exist_ok=True)
 
@@ -46,21 +56,14 @@ def get_classic_bert_embedding(text, tokenizer: BertTokenizer, model: BertModel)
 # perform and return bert embeddings
 # performed on whole episodes worth of dialogs at once
 def perform_classic_bert_embedding(dialogs: list[str]) -> list[np.ndarray]:
-    # Load pre - trained tokenizer
-    tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
-    # Load pre - trained model
-    model = BertModel.from_pretrained("bert-base-uncased")
-    model.eval()
-
     embeddings = []
+    # Run BERT separately for every dialog
+    for dialog_index in tqdm(range(0, len(dialogs)),
+                             desc="Performing BERT Embedding",
+                             unit=" dialogs",
+                             colour="blue"):
 
-    for dialog_index in tqdm(
-        range(0, len(dialogs)),
-        desc="Performing BERT Embedding",
-        unit=" dialogs",
-        colour="blue",
-    ):
-        bert_embedding = get_classic_bert_embedding(dialogs[dialog_index], tokenizer, model)
+        bert_embedding = get_classic_bert_embedding(dialogs[dialog_index], bert_tokenizer, bert_model)
         embeddings.append(bert_embedding)
 
     return embeddings
@@ -78,10 +81,6 @@ def get_sbert_embeddings(texts: list[str], model: SentenceTransformer, print_sta
 
 # perform and return SBERT embeddings (batched)
 def perform_sentence_bert_embedding(dialogs: list[str], batch_size: int = 32) -> list[np.ndarray]:
-    # Load pre-trained model
-    model = SentenceTransformer("all-MiniLM-L6-v2")
-    model.eval()
-
     embeddings = []
 
     for start_idx in tqdm(
@@ -93,7 +92,7 @@ def perform_sentence_bert_embedding(dialogs: list[str], batch_size: int = 32) ->
         # Batch embeddings for speed
         batch = dialogs[start_idx : start_idx + batch_size]
         # encode entire batch at once
-        batch_embeddings = get_sbert_embeddings(batch, model)
+        batch_embeddings = get_sbert_embeddings(batch, s_bert_model)
 
         for emb in batch_embeddings:
             embeddings.append(emb)
@@ -232,14 +231,14 @@ def perform_fresh_embeddings_and_pca(model_selection: BERT_MODEL,
     # Pick appropriate model and perform embeddings
     if model_selection is BERT_MODEL.BERT:
         embeddings = perform_classic_bert_embedding(dialog_list)
-        np.save(model_selection.BERT.value, embeddings)
-        print(f"Embeddings Saved To: {model_selection.BERT.value}")
+        np.save(model_selection.value, embeddings)
+        print(f"Embeddings Saved To: {model_selection.value}")
         print(f"Len of embeddings: {len(embeddings)}")
 
     elif model_selection is BERT_MODEL.S_BERT:
         embeddings = perform_sentence_bert_embedding(dialog_list)
-        np.save(model_selection.S_BERT.value, embeddings)
-        print(f"Embeddings Saved To: {model_selection.S_BERT.value}")
+        np.save(model_selection.value, embeddings)
+        print(f"Embeddings Saved To: {model_selection.value}")
         print(f"Len of embeddings: {len(embeddings)}")
 
     # PCA + Graph embeddgiuns (2d and 3d)
@@ -267,12 +266,12 @@ def perform_cached_embeddings_and_pca(model_selection: BERT_MODEL,
 # Perform BERT embeddings and PCA, and optionally plot PCA
 # embeddings can be used from cache (use_cached_embeddings=true) or re-run
 # models can be selected from by specifying BERT_MODEL.BERT or BERT_MODEL.S_BERT
-def orchestrate_embeddings_and_pca(model_selection = BERT_MODEL,
+def orchestrate_embeddings_and_pca(model_selection: BERT_MODEL,
                                    use_cached_embeddings: bool = True,
                                    show_and_save_plots: bool = True):
-    # Make output file if not already present
+    # Make bert_embeddings file if not already present
     make_empty_file_if_not_exists(model_selection.value)
-    # Check if output file is empty (if cached data not present)
+    # Check if bert_embeddings file is empty (if cached data not present)
     cached_embeddings_present = os.stat(model_selection.value).st_size != 0
     # If embeddings are not present or we want to override cache
     if (not cached_embeddings_present) or (not use_cached_embeddings):
@@ -286,7 +285,7 @@ def orchestrate_embeddings_and_pca(model_selection = BERT_MODEL,
 
 # Return Dataframe of Ground Truth labels and Embeddings
 # Uses cached emebddings if available, can also force a cache refresh
-def get_embeddings_and_labels_for_model(model_selection = BERT_MODEL,
+def get_embeddings_and_labels_for_model(model_selection: BERT_MODEL,
                                         use_cached_embeddings: bool = True):
     # Check if Cached embeddings exist, and if not re-run them before returning them
     make_empty_file_if_not_exists(model_selection.value)
@@ -314,7 +313,24 @@ def get_embeddings_and_labels_for_model(model_selection = BERT_MODEL,
     return df
 
 
+# Refresh BERT and S BERT embeddings
+# WARNING - VERY SLOW
+# ONLY DO IF NEEDED
+def refresh_model_embeddings():
+    get_embeddings_and_labels_for_model(model_selection=BERT_MODEL.S_BERT,
+                                                        use_cached_embeddings=False)
+
+    get_embeddings_and_labels_for_model(model_selection=BERT_MODEL.BERT,
+                                                        use_cached_embeddings=False)
+
+
 if __name__ == "__main__":
+    refresh_model_embeddings()
+
     orchestrate_embeddings_and_pca(model_selection = BERT_MODEL.S_BERT,
+                                   use_cached_embeddings=False,
+                                   show_and_save_plots=True)
+
+    orchestrate_embeddings_and_pca(model_selection = BERT_MODEL.BERT,
                                    use_cached_embeddings=False,
                                    show_and_save_plots=True)
