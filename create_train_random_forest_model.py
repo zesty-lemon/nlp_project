@@ -3,7 +3,6 @@ from datetime import datetime
 import constants as c
 from typing import Dict, Tuple
 import numpy as np
-import sklearn.ensemble
 from matplotlib import pyplot as plt
 from scipy.stats import randint
 import joblib
