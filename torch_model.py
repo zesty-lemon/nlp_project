@@ -5,7 +5,7 @@ from torch.utils.data import random_split, DataLoader
 from torchsummary import summary
 import pandas as pd
 import numpy as np
-from constants import BERT_MODEL, BATCH_SIZE, # RANDOM_SEED
+from constants import BERT_MODEL, BATCH_SIZE, RANDOM_SEED
 from corpus_utils import get_everything
 from dialog_dataloader import DialogDataset
 from sklearn.metrics import confusion_matrix
@@ -57,10 +57,11 @@ def load_split_data(bert_version: BERT_MODEL, verbose=False):
         print(f"X feature shape: {embeddings.shape}")
         print(f"Y label shape: {len(gt_labels_list)}")
 
+    # Over-sample our data to balance the classes more
+    sm = SMOTE(random_state=RANDOM_SEED)
+    res_embeddings, res_gt_labels = sm.fit_resample(embeddings, gt_labels_list)
 
-    # sm = SMOTE(random_state=RANDOM_SEED)
-
-    dataset = DialogDataset(embeddings, gt_labels_list)
+    dataset = DialogDataset(res_embeddings, res_gt_labels)
 
     if verbose:
         print(f"Total len of dataset: {len(dataset)}")
@@ -218,7 +219,7 @@ if __name__ == "__main__":
     optimizer = torch.optim.SGD(model.parameters(), lr=1e-3)
 
     # Train for n epochs on the train and test data
-    epochs = 5
+    epochs = 200
     for t in range(epochs):
         print(f"Epoch {t+1}\n-------------------------------")
         train(train_dl, model, loss_fn, optimizer, device)
