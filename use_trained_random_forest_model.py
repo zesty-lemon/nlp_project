@@ -18,6 +18,7 @@ def get_trained_model(path_to_model: str) -> RandomForestClassifier:
     trained_classifier = joblib.load(path_to_model)
     return trained_classifier
 
+
 # Load classifiers into memory
 print("BEGIN loading BERT and SBERT classifiers into memory")
 bert_classifier = get_trained_model(path_to_bert_model)

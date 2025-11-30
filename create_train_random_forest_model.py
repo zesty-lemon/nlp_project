@@ -3,7 +3,6 @@ from datetime import datetime
 import constants as c
 from typing import Dict, Tuple
 import numpy as np
-import sklearn.ensemble
 from matplotlib import pyplot as plt
 from scipy.stats import randint
 import joblib
@@ -17,6 +16,7 @@ from sklearn.metrics import (
     confusion_matrix,
     ConfusionMatrixDisplay,
     accuracy_score,
+    average_precision_score, PrecisionRecallDisplay
 )
 import word_embeddings
 
@@ -33,7 +33,7 @@ def generate_run_dir_name(model_selection: BERT_MODEL) -> str:
     minute = now.strftime("%M")
     second = now.strftime("%S")
 
-    return f"{model_selection.name}_{day}_{month}_{hour}_{minute}_{second}"
+    return f"{day}_{month}_{hour}_{minute}_{second}_{model_selection.name}" # model selection at end so ordered by date
 
 
 # Read features in from file
@@ -56,8 +56,7 @@ def read_features(model_selection: BERT_MODEL) -> Tuple[np.ndarray, np.ndarray]:
 
 
 # Train and test a random forest model with a simple test/training split
-def train_randomforest(clf: RandomForestClassifier,
-                       X_features: np.ndarray,
+def train_randomforest(X_features: np.ndarray,
                        y_labels: np.ndarray,
                        classes: Dict[int, str],
                        model_selection: BERT_MODEL,
@@ -66,6 +65,17 @@ def train_randomforest(clf: RandomForestClassifier,
                        report_directory: str = None) -> RandomForestClassifier:
 
     print("---- BEGIN Training Random Forest Classifier ---")
+    clf = RandomForestClassifier(n_estimators=383,
+                                 max_depth=10,
+                                 max_features="sqrt",
+                                 min_samples_leaf=9,
+                                 min_samples_split=17,
+                                 bootstrap=False,
+                                 criterion="gini",
+                                 class_weight="balanced",
+                                 random_state=random_state
+                                 )
+
     Xtrain, Xtest, ytrain, ytest = train_test_split(X_features,
                                                     y_labels,
                                                     test_size=test_size,
@@ -148,15 +158,27 @@ def run_random_param_search(X_train: np.ndarray,
     rf_classifier = RandomForestClassifier(random_state=42,
                                            class_weight="balanced")
 
+    # Larger ssearch space but much slower
+    # # define the parameter distributions
+    # param_distributions = {
+    #     "n_estimators": randint(100, 400),
+    #     "max_depth": [None] + list(range(10, 61, 10)),  # none = unlimited
+    #     "min_samples_split": randint(2, 20),
+    #     "min_samples_leaf": randint(1, 10),
+    #     "max_features": ['sqrt', 'log2', None],
+    #     "bootstrap": [True, False],
+    #     "criterion": ["gini", "entropy", "log_loss"],
+    # }
+
     # define the parameter distributions
     param_distributions = {
-        "n_estimators": randint(100, 400),
-        "max_depth": [None] + list(range(10, 61, 10)),  # none = unlimited
+        "n_estimators": randint(200, 400),
+        "max_depth": list(range(10, 61, 10)),  # none = unlimited
         "min_samples_split": randint(2, 20),
         "min_samples_leaf": randint(1, 10),
-        "max_features": ['sqrt', 'log2', None],
-        "bootstrap": [True, False],
-        "criterion": ["gini", "entropy", "log_loss"],
+        "max_features": ['sqrt', 'log2'],
+        "bootstrap": [False],
+        "criterion": ["gini"],
     }
 
     # create the RandomizedSearchCV object
@@ -275,29 +297,25 @@ def generate_model_analysis_report(Xtrain: np.ndarray,
     pos_idx = list(already_fitted_clf.classes_).index(positive_label)
 
     # Calculate ROC with correct index
-    y_score = already_fitted_clf.predict_proba(Xtest)[:, pos_idx]
-    fpr, tpr, _ = roc_curve(ytest, y_score, pos_label=positive_label) # force positive label manually
+    y_pred = already_fitted_clf.predict_proba(Xtest)[:, pos_idx]
+    fpr, tpr, _ = roc_curve(ytest, y_pred, pos_label=positive_label) # force positive label manually
     roc_auc = auc(fpr, tpr)
 
     # Plot ROC
     plt.figure(figsize=(6, 6))
     RocCurveDisplay(fpr=fpr, tpr=tpr, roc_auc=roc_auc, name="RandomForest").plot()
     plt.plot([0, 1], [0, 1], linestyle="--", linewidth=1)
-    plt.title("ROC Curve (Random Forest Model)\nBig Bang Theory Humour Classification")
+    plt.title(f"ROC Curve (Random Forest Model)\nBig Bang Theory Humour Classification\nEmbeddings Model: {model_selection.name}")
     plt.grid(True, linestyle="--", alpha=0.3)
     plt.tight_layout()
 
     # Save ROC to file
-    plot_filepath = os.path.join(directory, "roc_curve_random_search.png")
+    plot_filepath = os.path.join(directory, "roc_curve_random_forest.png")
     plt.savefig(plot_filepath)
     plt.close()
     print(f"Saved ROC curve to: {plot_filepath}")
 
-    # ---- Generate & Save Report to Directory ----
-
-    # Make directory & path to store final report
-    report_path = os.path.join(directory, "random_forest_model_report.txt")
-
+    # ---- Statistics on Test/Training Set Distribution ----
     # Statistics on Class Distribution (Training Set)
     train_humour_class_count = np.sum(ytrain == c.GT_HUMOUR)
     train_non_humour_class_count = np.sum(ytrain == c.GT_NON_HUMOUR)
@@ -311,6 +329,39 @@ def generate_model_analysis_report(Xtrain: np.ndarray,
     test_total_classes = test_humour_class_count + test_non_humour_class_count
     test_humour_class_percent = round((test_humour_class_count / test_total_classes) * 100, 1)
     test_non_humour_class_percent = round((test_non_humour_class_count / test_total_classes) * 100,1)
+
+    # ---- Generate & Save AUPRC Chart to Directory ----
+    # Calculate AUPRC
+    auprc = average_precision_score(ytest, y_pred)
+
+    # Plot Precision-Recall Curve
+    plt.figure(figsize=(6, 6))
+    PrecisionRecallDisplay.from_predictions(ytest, y_pred)
+    plt.plot([0, 1], [0, 1], linestyle="--", linewidth=1)
+    plt.title(f"Precision-Recall Curve (Random Forest Model)\nBig Bang Theory Humour Classification\nEmbeddings Model: {model_selection.name}", fontsize=10)
+    plt.grid(True, linestyle="--", alpha=0.3)
+
+    # Note: Since we are proportionally balance classes between test & training we can use either one here
+    plt.annotate(
+        f"Humor Class Prevalence: {test_non_humour_class_percent}%\nNon-Humor Class Prevalence: {test_humour_class_percent}%",
+        xy=(0.5, -0.20),
+        xycoords="axes fraction",
+        ha="center",
+        fontsize=8
+    )
+
+    plt.tight_layout()
+
+    # Save ROC to file
+    plot_filepath = os.path.join(directory, "pr_curve_random_forest.png")
+    plt.savefig(plot_filepath)
+    plt.close()
+    print(f"Saved PR curve to: {plot_filepath}")
+
+    # ---- Generate & Save Report to Directory ----
+
+    # Make directory & path to store final report
+    report_path = os.path.join(directory, "random_forest_model_report.txt")
 
     # Training accuracy
     y_train_pred = already_fitted_clf.predict(Xtrain)
@@ -353,7 +404,8 @@ def generate_model_analysis_report(Xtrain: np.ndarray,
         f.write("--------- Performance Metrics --------\n")
         f.write(f"Training accuracy: {train_acc:.4f}\n")
         f.write(f"Test accuracy: {test_acc:.4f}\n")
-        f.write(f"Random Forest AUC (Test Set): {roc_auc:.3f}\n\n")
+        f.write(f"Random Forest AUC (Test Set): {roc_auc:.3f}\n")
+        f.write(f"Random Forest AUPRC (Test Set): {auprc:.3f}\n\n")
         f.write(f"Classification Report: \n{report_str}\n")
         f.write("----------- General Metrics ----------\n")
         f.write(f"Train Set Instances of Humor Class: {train_humour_class_count} ({training_humour_class_percent})\n")
@@ -429,9 +481,7 @@ def create_new_trained_models(run_k_fold_validation: bool,
 
     # Fit Random Forest Model
     if run_new_simple_rf_classifier:
-        clf = RandomForestClassifier(n_estimators=200, random_state=42)
-        clf = train_randomforest(clf,
-                                 X_features,
+        clf = train_randomforest(X_features,
                                  y_labels,
                                  model_selection = model_selection,
                                  classes=c.CLASSES,
@@ -449,15 +499,15 @@ def create_new_trained_models(run_k_fold_validation: bool,
 
 if __name__ == "__main__":
     # # Create trained model with BERT embeddings
-    create_new_trained_models(run_k_fold_validation=True,
+    create_new_trained_models(run_k_fold_validation=False,
                               run_new_simple_rf_classifier=True,
-                              run_random_param_search=True,
+                              run_random_param_search=False,
                               model_selection=BERT_MODEL.BERT,
                               use_dummy_parameters=False)
 
     # Create trained model with Sentence Bert embeddings
-    create_new_trained_models(run_k_fold_validation=True,
+    create_new_trained_models(run_k_fold_validation=False,
                               run_new_simple_rf_classifier=True,
-                              run_random_param_search=True,
+                              run_random_param_search=False,
                               model_selection=BERT_MODEL.S_BERT,
                               use_dummy_parameters=False)
