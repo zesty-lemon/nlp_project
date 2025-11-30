@@ -23,10 +23,14 @@ GT_HUMOUR = 1
 GT_NON_HUMOUR = 0
 GT_HUMOR_CLASSNAME = "humour"
 GT_NON_HUMOR_CLASSNAME = "non_humour"
-CLASSES = {0: GT_HUMOR_CLASSNAME, 1: GT_NON_HUMOR_CLASSNAME} # source of truth for classname -> val mappings
+CLASSES = {
+    0: GT_HUMOR_CLASSNAME,
+    1: GT_NON_HUMOR_CLASSNAME,
+}  # source of truth for classname -> val mappings
 
 # Pytorch Neural Network Constants
 BATCH_SIZE = 64
+RANDOM_SEED = 21
 
 
 # enum to store different BERT model choices
