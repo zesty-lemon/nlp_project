@@ -11,6 +11,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 from scipy.stats import randint
 import joblib
+from imblearn.over_sampling import SMOTE
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.pipeline import Pipeline
 from sklearn.model_selection import train_test_split, StratifiedKFold, cross_val_score, RandomizedSearchCV
@@ -30,7 +31,7 @@ from constants import BERT_MODEL
 
 
 # Get unique name for bert_embeddings directory
-def generate_run_dir_name(model_selection: BERT_MODEL) -> str:
+def generate_run_dir_name(model_selection: BERT_MODEL, use_smote:bool) -> str:
     now = datetime.now()
 
     day = now.strftime("%d")
@@ -39,7 +40,10 @@ def generate_run_dir_name(model_selection: BERT_MODEL) -> str:
     minute = now.strftime("%M")
     second = now.strftime("%S")
 
-    return f"{day}_{month}_{hour}_{minute}_{second}_{model_selection.name}" # model selection at end so ordered by date
+    if use_smote:
+        return f"{day}_{month}_{hour}_{minute}_{second}_{model_selection.name}_smote"  # model selection at end so ordered by date
+    else:
+        return f"{day}_{month}_{hour}_{minute}_{second}_{model_selection.name}_no_smote"  # model selection at end so ordered by date
 
 
 # Read features in from file
@@ -66,6 +70,7 @@ def train_randomforest(X_features: np.ndarray,
                        y_labels: np.ndarray,
                        classes: Dict[int, str],
                        model_selection: BERT_MODEL,
+                       use_smote: bool,
                        random_state: int = 42,
                        test_size=0.3,
                        report_directory: str = None) -> RandomForestClassifier:
@@ -88,6 +93,11 @@ def train_randomforest(X_features: np.ndarray,
                                                     stratify=y_labels,
                                                     random_state=random_state)
 
+    # Optionally enable SMOTE oversampling
+    if use_smote:
+        sm = SMOTE(random_state=42)
+        Xtrain, ytrain = sm.fit_resample(Xtrain, ytrain)
+
     # Train the model
     clf.fit(Xtrain, ytrain)
 
@@ -101,7 +111,8 @@ def train_randomforest(X_features: np.ndarray,
                                    clf,
                                    full_output_dir,
                                    classes,
-                                   model_selection = model_selection)
+                                   model_selection = model_selection,
+                                   use_smote=use_smote)
 
     # Save the trained model to file
     joblib.dump(clf, f'{full_output_dir}/random_forest_model.joblib')
@@ -159,6 +170,7 @@ def perform_k_fold_randomforest(X_features: np.ndarray,
 def run_random_param_search(X_train: np.ndarray,
                             y_train: np.ndarray,
                             directory: str,
+                            use_smote: bool,
                             use_dummy_model_configs: bool = False) -> RandomForestClassifier:
     # define the estimator
     rf_classifier = RandomForestClassifier(random_state=42,
@@ -166,15 +178,15 @@ def run_random_param_search(X_train: np.ndarray,
 
     # Larger ssearch space but much slower
     # # define the parameter distributions
-    # param_distributions = {
-    #     "n_estimators": randint(100, 400),
-    #     "max_depth": [None] + list(range(10, 61, 10)),  # none = unlimited
-    #     "min_samples_split": randint(2, 20),
-    #     "min_samples_leaf": randint(1, 10),
-    #     "max_features": ['sqrt', 'log2', None],
-    #     "bootstrap": [True, False],
-    #     "criterion": ["gini", "entropy", "log_loss"],
-    # }
+    param_distributions = {
+        "n_estimators": randint(100, 400),
+        "max_depth": [None] + list(range(10, 61, 10)),  # none = unlimited
+        "min_samples_split": randint(2, 20),
+        "min_samples_leaf": randint(1, 10),
+        "max_features": ['sqrt', 'log2', None],
+        "bootstrap": [True, False],
+        "criterion": ["gini", "entropy", "log_loss"],
+    }
 
     # define the parameter distributions
     param_distributions = {
@@ -232,6 +244,10 @@ def run_random_param_search(X_train: np.ndarray,
             n_jobs=1,
             verbose=1,
             return_train_score = True)
+
+    if use_smote:
+        sm = SMOTE(random_state=42)
+        X_train, y_train = sm.fit_resample(X_train, y_train)
 
     # Run the search
     random_search.fit(X_train, y_train)
@@ -293,7 +309,8 @@ def generate_model_analysis_report(Xtrain: np.ndarray,
                                    already_fitted_clf: BaseEstimator, # ignore "unresolved attribute for class BaseEstimator" warnings
                                    directory: str,
                                    classes: Dict[int, str],
-                                   model_selection: BERT_MODEL):
+                                   model_selection: BERT_MODEL,
+                                   use_smote: bool):
     # ---- Generate & Save ROC Chart to Directory ----
     # Get ROC/AUC and Plot It
     # Find the numeric label for “humour”
@@ -407,6 +424,8 @@ def generate_model_analysis_report(Xtrain: np.ndarray,
         f.write("----- Random Forest Model Report -----\n")
         f.write("======================================\n\n")
         f.write(f"Embedding Used: {model_selection.name}\n")
+        f.write(f"SMOTE Oversampling Used: {use_smote}\n")
+
         f.write("--------- Performance Metrics --------\n")
         f.write(f"Training accuracy: {train_acc:.4f}\n")
         f.write(f"Test accuracy: {test_acc:.4f}\n")
@@ -424,6 +443,7 @@ def perform_random_param_search(X_features: np.ndarray,
                                 y_labels: np.ndarray,
                                 model_selection: BERT_MODEL,
                                 directory: str,
+                                use_smote: bool,
                                 classes: Dict[int, str],
                                 use_dummy_model_configs: bool = False) -> RandomForestClassifier:
     print("----- BEGIN Randomized Search CV -----")
@@ -437,12 +457,21 @@ def perform_random_param_search(X_features: np.ndarray,
         random_state=42,
     )
 
+    # Optionally enable SMOTE oversampling
+    if use_smote:
+        sm = SMOTE(random_state=42)
+        Xtrain, ytrain = sm.fit_resample(Xtrain, ytrain)
+
     # Make the bert_embeddings directory to store model & report
     output_dir = directory + "/random_search_model/"
     os.makedirs(output_dir, exist_ok=True)
 
     # Run random search for best configuration of parameters
-    clf = run_random_param_search(Xtrain, ytrain, output_dir, use_dummy_model_configs)
+    clf = run_random_param_search(Xtrain,
+                                  ytrain,
+                                  output_dir,
+                                  use_smote=use_smote,
+                                  use_dummy_model_configs=use_dummy_model_configs)
 
     # Save best model to file
     joblib.dump(clf, f'{output_dir}/random_forest_model.joblib')
@@ -456,7 +485,8 @@ def perform_random_param_search(X_features: np.ndarray,
                                    clf,
                                    output_dir,
                                    classes,
-                                   model_selection)
+                                   model_selection,
+                                   use_smote=use_smote)
 
     print("----- END Randomized Search CV -----")
     return clf
@@ -468,6 +498,7 @@ def train_logistic_regression(X_features: np.ndarray,
                               classes: Dict[int, str],
                               report_directory: str,
                               model_selection: BERT_MODEL,
+                              use_smote: bool,
                               random_state: int = 42,
                               test_size: float = 0.3) -> Pipeline:
     print("----- BEGIN Logistic Regression -----")
@@ -480,6 +511,11 @@ def train_logistic_regression(X_features: np.ndarray,
         stratify=y_labels,
         random_state=random_state,
     )
+
+    # Optionally enable SMOTE oversampling
+    if use_smote:
+        sm = SMOTE(random_state=42)
+        Xtrain, ytrain = sm.fit_resample(Xtrain, ytrain)
 
     # Build pipeline
     logreg_pipeline = Pipeline(
@@ -507,6 +543,7 @@ def train_logistic_regression(X_features: np.ndarray,
                                    ytest,
                                    already_fitted_clf=logreg_pipeline,
                                    directory=full_output_dir,
+                                   use_smote=use_smote,
                                    classes=classes,
                                    model_selection=model_selection)
 
@@ -519,11 +556,12 @@ def create_new_trained_models(run_k_fold_validation: bool,
                               run_new_simple_rf_classifier: bool,
                               run_random_param_search: bool,
                               run_logistic_regression: bool,
+                              use_smote: bool,
                               model_selection: BERT_MODEL,
                               use_dummy_parameters: bool = False):
 
     directory_to_save_models = (
-            c.RANDOM_FOREST_TRAINED_MODEL_DIR_PREFIX + "sandbox/" + generate_run_dir_name(model_selection)
+            c.RANDOM_FOREST_TRAINED_MODEL_DIR_PREFIX + "sandbox/" + generate_run_dir_name(model_selection, use_smote)
     )
 
     os.makedirs(directory_to_save_models, exist_ok=True)
@@ -543,6 +581,7 @@ def create_new_trained_models(run_k_fold_validation: bool,
         clf = train_randomforest(X_features,
                                  y_labels,
                                  model_selection = model_selection,
+                                 use_smote=use_smote,
                                  classes=c.CLASSES,
                                  report_directory=directory_to_save_models)
 
@@ -552,6 +591,7 @@ def create_new_trained_models(run_k_fold_validation: bool,
                                     y_labels,
                                     model_selection = model_selection,
                                     directory=directory_to_save_models,
+                                    use_smote=use_smote,
                                     classes=c.CLASSES,
                                     use_dummy_model_configs=use_dummy_parameters)
 
@@ -562,21 +602,42 @@ def create_new_trained_models(run_k_fold_validation: bool,
                                   y_labels,
                                   classes=c.CLASSES,
                                   model_selection=model_selection,
+                                  use_smote=use_smote,
                                   report_directory=directory_to_save_models)
 
 if __name__ == "__main__":
-    # # Create trained model with BERT embeddings
-    create_new_trained_models(run_k_fold_validation=False,
-                              run_new_simple_rf_classifier=False,
-                              run_random_param_search=False,
+    # trained model with BERT embeddings
+    create_new_trained_models(run_k_fold_validation=True,
+                              run_new_simple_rf_classifier=True,
+                              run_random_param_search=True,
                               run_logistic_regression=True,
+                              use_smote=False,
                               model_selection=BERT_MODEL.BERT,
                               use_dummy_parameters=False)
 
     # Create trained model with Sentence Bert embeddings
-    create_new_trained_models(run_k_fold_validation=False,
-                              run_new_simple_rf_classifier=False,
-                              run_random_param_search=False,
+    create_new_trained_models(run_k_fold_validation=True,
+                              run_new_simple_rf_classifier=True,
+                              run_random_param_search=True,
                               run_logistic_regression=True,
+                              use_smote=False,
+                              model_selection=BERT_MODEL.S_BERT,
+                              use_dummy_parameters=False)
+
+    # trained model with BERT embeddings and SMOTE oversampling
+    create_new_trained_models(run_k_fold_validation=True,
+                              run_new_simple_rf_classifier=True,
+                              run_random_param_search=True,
+                              run_logistic_regression=True,
+                              use_smote=True,
+                              model_selection=BERT_MODEL.BERT,
+                              use_dummy_parameters=False)
+
+    # Create trained model with Sentence Bert embeddings and SMOTE oversampling
+    create_new_trained_models(run_k_fold_validation=True,
+                              run_new_simple_rf_classifier=True,
+                              run_random_param_search=True,
+                              run_logistic_regression=True,
+                              use_smote=True,
                               model_selection=BERT_MODEL.S_BERT,
                               use_dummy_parameters=False)
