@@ -5,9 +5,11 @@ from torch.utils.data import random_split, DataLoader
 from torchsummary import summary
 import pandas as pd
 import numpy as np
-from constants import BERT_MODEL, BATCH_SIZE
+from constants import BERT_MODEL, BATCH_SIZE, RANDOM_SEED
 from corpus_utils import get_everything
 from dialog_dataloader import DialogDataset
+from sklearn.metrics import confusion_matrix
+from imblearn.over_sampling import SMOTE
 
 
 def setup(verbose=False):
@@ -55,7 +57,11 @@ def load_split_data(bert_version: BERT_MODEL, verbose=False):
         print(f"X feature shape: {embeddings.shape}")
         print(f"Y label shape: {len(gt_labels_list)}")
 
-    dataset = DialogDataset(embeddings, gt_labels_list)
+    # Over-sample our data to balance the classes more
+    sm = SMOTE(random_state=RANDOM_SEED)
+    res_embeddings, res_gt_labels = sm.fit_resample(embeddings, gt_labels_list)
+
+    dataset = DialogDataset(res_embeddings, res_gt_labels)
 
     if verbose:
         print(f"Total len of dataset: {len(dataset)}")
@@ -126,7 +132,7 @@ def train(dataloader, model, loss_fn, optimizer, device):
         # Reset the gradient
         optimizer.zero_grad()
 
-        if batch % 10 == 0:
+        if batch % 25 == 0:
             loss, current = loss.item(), (batch + 1) * len(x_features)
             print(f"loss: {loss:>7f}  [{current:>5d}/{size:>5d}]")
 
@@ -161,23 +167,39 @@ def evaluate(data_loader, model, device):
     humor_preds = 0
     correct_predictions = 0
     total_predictions = 0
+    CM = 0
 
     with torch.no_grad():
         # loop through validation data points and pass them into the model
         for inputs, labels in data_loader:
+
             inputs, labels = inputs.to(device), labels.to(device)
             output = model(inputs)
             prediction = torch.squeeze(output).round()
 
-            humor_preds += torch.sum(prediction)
-            correct_predictions += (prediction == labels).sum().item()
-            total_predictions += labels.size(0)
+            # Handle the weird behavior of tensors with a single scalar element
+            if labels.numel() <= 1:
+                temp_label = [labels.cpu()]
+                temp_pred = [prediction.cpu().item()]
+                CM += confusion_matrix(temp_label, temp_pred, labels=[0, 1])
+            else:
+                CM += confusion_matrix(labels.cpu(), prediction.cpu(), labels=[0, 1])
 
-    print(f"Total Preds: {total_predictions}")
-    print(
-        f"{humor_preds} humourous and {total_predictions - humor_preds} non-humourous"
-    )
-    print(f"Validation Accuracy: {correct_predictions / total_predictions}")
+        TN = CM[0][0]
+        TP = CM[1][1]
+        FP = CM[0][1]
+        FN = CM[1][0]
+
+        accuracy = np.sum(np.diag(CM) / np.sum(CM))
+        recall = TP / (TP + FN)
+        precision = TP / (TP + FP)
+        f1 = (precision * recall) / (precision + recall)
+
+        print("Validation Accuracy(mean): %f %%" % (100 * accuracy))
+        print(f"Confusion Matirx : \n{CM}")
+        print(f"Recall : {recall * 100}")
+        print(f"Precision: {precision * 100}")
+        print(f"F1-Score: {f1 * 100}")
 
 
 if __name__ == "__main__":
@@ -197,12 +219,12 @@ if __name__ == "__main__":
     optimizer = torch.optim.SGD(model.parameters(), lr=1e-3)
 
     # Train for n epochs on the train and test data
-    epochs = 5
+    epochs = 200
     for t in range(epochs):
         print(f"Epoch {t+1}\n-------------------------------")
         train(train_dl, model, loss_fn, optimizer, device)
         test(test_dl, model, loss_fn, device)
-    print("Done!")
+    print("Done Training!\n")
 
     # Check final validation accuracy on validation data
     evaluate(validation_dl, model, device)
