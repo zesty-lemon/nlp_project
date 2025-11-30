@@ -1,5 +1,10 @@
 import os
 from datetime import datetime
+
+from sklearn.base import BaseEstimator
+from sklearn.linear_model import LogisticRegression
+from sklearn.preprocessing import StandardScaler
+
 import constants as c
 from typing import Dict, Tuple
 import numpy as np
@@ -7,6 +12,7 @@ from matplotlib import pyplot as plt
 from scipy.stats import randint
 import joblib
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.pipeline import Pipeline
 from sklearn.model_selection import train_test_split, StratifiedKFold, cross_val_score, RandomizedSearchCV
 from sklearn.metrics import (
     classification_report,
@@ -65,7 +71,7 @@ def train_randomforest(X_features: np.ndarray,
                        report_directory: str = None) -> RandomForestClassifier:
 
     print("---- BEGIN Training Random Forest Classifier ---")
-    clf = RandomForestClassifier(n_estimators=383,
+    clf = RandomForestClassifier(n_estimators=500,
                                  max_depth=10,
                                  max_features="sqrt",
                                  min_samples_leaf=9,
@@ -284,7 +290,7 @@ def generate_model_analysis_report(Xtrain: np.ndarray,
                                    Xtest: np.ndarray,
                                    ytrain: np.ndarray,
                                    ytest: np.ndarray,
-                                   already_fitted_clf: RandomForestClassifier,
+                                   already_fitted_clf: BaseEstimator, # ignore "unresolved attribute for class BaseEstimator" warnings
                                    directory: str,
                                    classes: Dict[int, str],
                                    model_selection: BERT_MODEL):
@@ -456,10 +462,63 @@ def perform_random_param_search(X_features: np.ndarray,
     return clf
 
 
+# Train and Evaluate a Logistic Regression Classifier
+def train_logistic_regression(X_features: np.ndarray,
+                              y_labels: np.ndarray,
+                              classes: Dict[int, str],
+                              report_directory: str,
+                              model_selection: BERT_MODEL,
+                              random_state: int = 42,
+                              test_size: float = 0.3) -> Pipeline:
+    print("----- BEGIN Logistic Regression -----")
+
+    # Split into train/test
+    Xtrain, Xtest, ytrain, ytest = train_test_split(
+        X_features,
+        y_labels,
+        test_size=test_size,
+        stratify=y_labels,
+        random_state=random_state,
+    )
+
+    # Build pipeline
+    logreg_pipeline = Pipeline(
+        steps=[
+            ("scaler", StandardScaler()),
+            ("clf", LogisticRegression(
+                max_iter=1000,
+                multi_class="auto",
+                random_state=random_state,
+            )),
+        ]
+    )
+
+    # Train model
+    logreg_pipeline.fit(Xtrain, ytrain)
+
+    # Directory for reports
+    full_output_dir = os.path.join(report_directory, "logistic_regression_model")
+    os.makedirs(full_output_dir, exist_ok=True)
+
+    # Generate Report
+    generate_model_analysis_report(Xtrain,
+                                   Xtest,
+                                   ytrain,
+                                   ytest,
+                                   already_fitted_clf=logreg_pipeline,
+                                   directory=full_output_dir,
+                                   classes=classes,
+                                   model_selection=model_selection)
+
+    print("----- END Logistic Regression -----")
+    return logreg_pipeline
+
+
 # Create & Save various Random Forest Models
 def create_new_trained_models(run_k_fold_validation: bool,
                               run_new_simple_rf_classifier: bool,
                               run_random_param_search: bool,
+                              run_logistic_regression: bool,
                               model_selection: BERT_MODEL,
                               use_dummy_parameters: bool = False):
 
@@ -497,17 +556,27 @@ def create_new_trained_models(run_k_fold_validation: bool,
                                     use_dummy_model_configs=use_dummy_parameters)
 
 
+    # Perform Logistic Regression
+    if run_logistic_regression:
+        train_logistic_regression(X_features,
+                                  y_labels,
+                                  classes=c.CLASSES,
+                                  model_selection=model_selection,
+                                  report_directory=directory_to_save_models)
+
 if __name__ == "__main__":
     # # Create trained model with BERT embeddings
     create_new_trained_models(run_k_fold_validation=False,
-                              run_new_simple_rf_classifier=True,
+                              run_new_simple_rf_classifier=False,
                               run_random_param_search=False,
+                              run_logistic_regression=True,
                               model_selection=BERT_MODEL.BERT,
                               use_dummy_parameters=False)
 
     # Create trained model with Sentence Bert embeddings
     create_new_trained_models(run_k_fold_validation=False,
-                              run_new_simple_rf_classifier=True,
+                              run_new_simple_rf_classifier=False,
                               run_random_param_search=False,
+                              run_logistic_regression=True,
                               model_selection=BERT_MODEL.S_BERT,
                               use_dummy_parameters=False)
