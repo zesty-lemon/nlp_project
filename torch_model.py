@@ -95,17 +95,18 @@ class NN(nn.Module):
         super().__init__()
         self.layer1 = nn.Sequential(nn.Linear(768, 512), nn.ReLU())
         self.layer2 = nn.Sequential(nn.Linear(512, 256), nn.ReLU())
-        self.layer2 = nn.Sequential(nn.Linear(512, 128), nn.ReLU())
+        self.layer3 = nn.Sequential(nn.Linear(256, 128), nn.ReLU())
         self.flatten = nn.Flatten()
-        self.layer3 = nn.Sequential(nn.Linear(128, 1))
+        self.layer4 = nn.Sequential(nn.Linear(128, 1))
         self.flatten2 = nn.Flatten()
         self.softmax = nn.Sigmoid()
 
     def forward(self, x):
         x = self.layer1(x)
         x = self.layer2(x)
-        x = self.flatten(x)
         x = self.layer3(x)
+        x = self.flatten(x)
+        x = self.layer4(x)
         x = self.flatten2(x)
         x = self.softmax(x)
 
