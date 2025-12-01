@@ -1,0 +1,26 @@
+----- Random Forest Model Report -----
+======================================
+
+Embedding Used: BERT
+SMOTE Oversampling Used: False
+--------- Performance Metrics --------
+Training accuracy: 0.9922
+Test accuracy: 0.8273
+Random Forest AUC (Test Set): 0.775
+Random Forest AUPRC (Test Set): 0.702
+
+Classification Report: 
+              precision    recall  f1-score   support
+
+      humour       0.51      0.28      0.36       714
+  non_humour       0.86      0.94      0.90      3385
+
+    accuracy                           0.83      4099
+   macro avg       0.68      0.61      0.63      4099
+weighted avg       0.80      0.83      0.81      4099
+
+----------- General Metrics ----------
+Train Set Instances of Humor Class: 7897 (82.6)
+Train Set Instances of Non-Humor Class: 1667 (17.4)
+Test Set Instances of Humor Class: 3385 (82.6)
+Test Set Instances of Non-Humor Class: 714 (17.4)
