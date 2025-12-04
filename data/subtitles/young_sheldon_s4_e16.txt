@@ -1,4 +1,5 @@
-﻿Checkmate. You lose.
+﻿Checkmate. 
+You lose.
 
 3
 00:00:04,570 --> 00:00:08,420
