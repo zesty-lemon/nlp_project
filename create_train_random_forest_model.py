@@ -82,6 +82,11 @@ def train_svm(X_features: np.ndarray,
                                                     stratify=y_labels,
                                                     random_state=random_state)
 
+    # Optionally enable SMOTE oversampling
+    if use_smote:
+        sm = SMOTE()
+        Xtrain, ytrain = sm.fit_resample(Xtrain, ytrain)
+
     clf = svm.SVC(probability=True) # Todo change this from probability
     clf.fit(Xtrain,ytrain)
 

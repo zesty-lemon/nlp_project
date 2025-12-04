@@ -11,8 +11,8 @@ def main():
 
     # Get cleaned dialogs
 
-    file_name = "young_sheldon_s4_e16_cleaned"
-    # file_name = "honeymooners_s1_e37_cleaned"
+    # file_name = "young_sheldon_s4_e16_cleaned"
+    file_name = "honeymooners_s1_e37_cleaned"
     dir_path = Path("data/subtitles/")
     file_path = dir_path / f"{file_name}.txt"
 
