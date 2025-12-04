@@ -12,6 +12,7 @@ from matplotlib import pyplot as plt
 from scipy.stats import randint
 import joblib
 from imblearn.over_sampling import SMOTE
+from sklearn import svm
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.pipeline import Pipeline
 from sklearn.model_selection import train_test_split, StratifiedKFold, cross_val_score, RandomizedSearchCV
@@ -65,6 +66,45 @@ def read_features(model_selection: BERT_MODEL) -> Tuple[np.ndarray, np.ndarray]:
     return X_features, y_labels
 
 
+# Train SVM Model
+def train_svm(X_features: np.ndarray,
+              y_labels: np.ndarray,
+              classes: Dict[int, str],
+              model_selection: BERT_MODEL,
+              use_smote: bool,
+              random_state: int = 42,
+              test_size=0.3,
+              report_directory: str = None):
+
+    Xtrain, Xtest, ytrain, ytest = train_test_split(X_features,
+                                                    y_labels,
+                                                    test_size=test_size,
+                                                    stratify=y_labels,
+                                                    random_state=random_state)
+
+    clf = svm.SVC(probability=True) # Todo change this from probability
+    clf.fit(Xtrain,ytrain)
+
+    full_output_dir = os.path.join(report_directory, "svm")
+    os.makedirs(full_output_dir, exist_ok=True)
+
+    generate_model_analysis_report(Xtrain,
+                                   Xtest,
+                                   ytrain,
+                                   ytest,
+                                   clf,
+                                   full_output_dir,
+                                   classes,
+                                   model_selection = model_selection,
+                                   use_smote=use_smote)
+
+    # Save the trained model to file
+    joblib.dump(clf, f'{full_output_dir}/svm_model.joblib')
+
+    print("---- END Training SVM Classifier ---")
+    return clf
+    pass
+
 # Train and test a random forest model with a simple test/training split
 def train_randomforest(X_features: np.ndarray,
                        y_labels: np.ndarray,
@@ -76,12 +116,12 @@ def train_randomforest(X_features: np.ndarray,
                        report_directory: str = None) -> RandomForestClassifier:
 
     print("---- BEGIN Training Random Forest Classifier ---")
-    clf = RandomForestClassifier(n_estimators=500,
-                                 max_depth=10,
+    clf = RandomForestClassifier(n_estimators=75,
+                                 max_depth=3,
                                  max_features="sqrt",
-                                 min_samples_leaf=9,
-                                 min_samples_split=17,
-                                 bootstrap=False,
+                                 min_samples_leaf=5,
+                                 min_samples_split=10,
+                                 bootstrap=True,
                                  criterion="gini",
                                  class_weight="balanced",
                                  random_state=random_state
@@ -95,7 +135,7 @@ def train_randomforest(X_features: np.ndarray,
 
     # Optionally enable SMOTE oversampling
     if use_smote:
-        sm = SMOTE(random_state=42)
+        sm = SMOTE()
         Xtrain, ytrain = sm.fit_resample(Xtrain, ytrain)
 
     # Train the model
@@ -605,6 +645,13 @@ def create_new_trained_models(run_k_fold_validation: bool,
                                   use_smote=use_smote,
                                   report_directory=directory_to_save_models)
 
+    train_svm(X_features,
+              y_labels,
+              classes=c.CLASSES,
+              model_selection=model_selection,
+              use_smote=True,
+              report_directory=directory_to_save_models)
+
 if __name__ == "__main__":
     # # trained model with BERT embeddings
     # create_new_trained_models(run_k_fold_validation=True,
@@ -624,20 +671,20 @@ if __name__ == "__main__":
     #                           model_selection=BERT_MODEL.S_BERT,
     #                           use_dummy_parameters=False)
 
-    # trained model with BERT embeddings and SMOTE oversampling
-    create_new_trained_models(run_k_fold_validation=True,
-                              run_new_simple_rf_classifier=True,
-                              run_random_param_search=True,
-                              run_logistic_regression=True,
-                              use_smote=True,
-                              model_selection=BERT_MODEL.BERT,
-                              use_dummy_parameters=False)
+    # # trained model with BERT embeddings and SMOTE oversampling
+    # create_new_trained_models(run_k_fold_validation=True,
+    #                           run_new_simple_rf_classifier=True,
+    #                           run_random_param_search=True,
+    #                           run_logistic_regression=True,
+    #                           use_smote=True,
+    #                           model_selection=BERT_MODEL.BERT,
+    #                           use_dummy_parameters=False)
 
     # Create trained model with Sentence Bert embeddings and SMOTE oversampling
-    create_new_trained_models(run_k_fold_validation=True,
-                              run_new_simple_rf_classifier=True,
-                              run_random_param_search=True,
-                              run_logistic_regression=True,
+    create_new_trained_models(run_k_fold_validation=False,
+                              run_new_simple_rf_classifier=False,
+                              run_random_param_search=False,
+                              run_logistic_regression=False,
                               use_smote=True,
                               model_selection=BERT_MODEL.S_BERT,
                               use_dummy_parameters=False)

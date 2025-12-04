@@ -1,6 +1,7 @@
 import joblib
 import numpy as np
 from numpy import ndarray
+from sklearn.base import BaseEstimator
 
 import word_embeddings
 
@@ -8,12 +9,13 @@ from sklearn.ensemble import RandomForestClassifier
 
 # Paths to trained models (trained_models directory)
 # if not present check filepath or re-run create_train_random_forest.py
-path_to_s_bert_model = "trained_models/random_forest/final/30_11_15_41_00_S_BERT_smote/random_search_model/random_forest_model.joblib"
+# path_to_s_bert_model = "trained_models/random_forest/final/30_11_15_41_00_S_BERT_smote/random_search_model/random_forest_model.joblib"
+path_to_s_bert_model = "trained_models/random_forest/sandbox/04_12_15_44_27_S_BERT_smote/manually_instantiated_model/random_forest_model.joblib"
 path_to_bert_model = "trained_models/random_forest/final/30_11_15_07_07_BERT_smote/random_search_model/random_forest_model.joblib"
 
 
 # Unpack trained classifier from trained_models/random_forest directory
-def get_trained_model(path_to_model: str) -> RandomForestClassifier:
+def get_trained_model(path_to_model: str) -> BaseEstimator:
     # model retrival inside method to force typing hints to work correctly
     trained_classifier = joblib.load(path_to_model)
     return trained_classifier
@@ -65,12 +67,12 @@ def predict_humour_of_text(use_bert: bool, input_text: str) -> bool:
     input_embedding = np.array(input_embedding)
 
     # Step 5: Classify Input
-    is_input_funny = classifier.predict(input_embedding) == 1
+    is_input_funny = classifier.predict(input_embedding) == 1 # ignore typing hint saying method not found
 
-    # print(f"Is Input Funny? {is_input_funny}")
-    # proba = classifier.predict_proba(input_embedding)[0]
-    # print("      Classes:", classifier.classes_)
-    # print("Probabilities:  ", proba)
+    print(f"Is Input Funny? {is_input_funny}")
+    proba = classifier.predict_proba(input_embedding)[0]
+    print("      Classes:", classifier.classes_)
+    print("Probabilities:  ", proba)
 
     return is_input_funny
 
