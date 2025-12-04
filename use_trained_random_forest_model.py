@@ -9,8 +9,8 @@ from sklearn.ensemble import RandomForestClassifier
 
 # Paths to trained models (trained_models directory)
 # if not present check filepath or re-run create_train_random_forest.py
-# path_to_s_bert_model = "trained_models/random_forest/final/30_11_15_41_00_S_BERT_smote/random_search_model/random_forest_model.joblib"
-path_to_s_bert_model = "trained_models/random_forest/sandbox/04_12_15_44_27_S_BERT_smote/manually_instantiated_model/random_forest_model.joblib"
+path_to_s_bert_model = "trained_models/random_forest/final/30_11_15_41_00_S_BERT_smote/random_search_model/random_forest_model.joblib"
+# path_to_s_bert_model = "trained_models/random_forest/sandbox/04_12_15_44_27_S_BERT_smote/manually_instantiated_model/random_forest_model.joblib"
 path_to_bert_model = "trained_models/random_forest/final/30_11_15_07_07_BERT_smote/random_search_model/random_forest_model.joblib"
 
 
