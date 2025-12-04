@@ -84,33 +84,6 @@ def competent_parse(episode_lines: list[str]) -> list[str]:
     return parsed_lines
 
 
-def giles_parse(episode_lines: list[str]) -> list[str]:
-    # Lol I saved ur function incase we want to use it :)
-
-    # if the next one is not an empty string, loop until len(episode_lines).  Loop till you find the next one
-    # then concatonate i (original) to index(after search) and increment i
-
-    # # deos not wor, going 2 bed
-    # cleaned_episode = []
-    # for i in range(0, len(episode_lines)-1):
-    #     if (episode_lines[i+1] != ""):
-    #         if i+1 <= len(episode_lines): # just in case
-    #             for j in range(i+1, len(episode_lines) - 1):
-    #
-    #         else:
-    #             cleaned_episode.append(episode_lines[i])
-    #
-    #         else:
-    #             cleaned_episode.append(episode_lines[i])
-    #     else:
-    #         pass
-
-    # processed_episode = "\n".join(cleaned_episode)
-    # print(processed_episode)
-
-    return NotImplementedError
-
-
 def main():
 
     # file_name = "young_sheldon_s4_e16"
