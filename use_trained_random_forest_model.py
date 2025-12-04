@@ -67,10 +67,10 @@ def predict_humour_of_text(use_bert: bool, input_text: str) -> bool:
     # Step 5: Classify Input
     is_input_funny = classifier.predict(input_embedding) == 1
 
-    print(f"Is Input Funny? {is_input_funny}")
-    proba = classifier.predict_proba(input_embedding)[0]
-    print("      Classes:", classifier.classes_)
-    print("Probabilities:  ", proba)
+    # print(f"Is Input Funny? {is_input_funny}")
+    # proba = classifier.predict_proba(input_embedding)[0]
+    # print("      Classes:", classifier.classes_)
+    # print("Probabilities:  ", proba)
 
     return is_input_funny
 
