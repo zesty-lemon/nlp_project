@@ -115,7 +115,7 @@ class NN(nn.Module):
 
 
 # Training function for the model
-def train(dataloader, model, loss_fn, optimizer, device):
+def train(dataloader, model, loss_fn, optimizer, device, verbose=True):
     size = len(dataloader.dataset)
     model.train()
     for batch, (x_features, y_labels) in enumerate(dataloader):
@@ -133,9 +133,12 @@ def train(dataloader, model, loss_fn, optimizer, device):
         # Reset the gradient
         optimizer.zero_grad()
 
-        if batch % 25 == 0:
+        if batch % 25 == 0 and verbose:
             loss, current = loss.item(), (batch + 1) * len(x_features)
             print(f"loss: {loss:>7f}  [{current:>5d}/{size:>5d}]")
+
+    loss, current = loss.item(), (batch + 1) * len(x_features)
+    print(f"loss: {loss:>7f}  [{current:>5d}/{size:>5d}]")
 
 
 # Testing function
@@ -165,9 +168,6 @@ def test(dataloader, model, loss_fn, device):
 # Validation function
 def evaluate(data_loader, model, device):
     model.eval()
-    humor_preds = 0
-    correct_predictions = 0
-    total_predictions = 0
     CM = 0
 
     with torch.no_grad():
@@ -191,16 +191,18 @@ def evaluate(data_loader, model, device):
         FP = CM[0][1]
         FN = CM[1][0]
 
-        accuracy = np.sum(np.diag(CM) / np.sum(CM))
-        recall = TP / (TP + FN)
-        precision = TP / (TP + FP)
+        accuracy = (np.sum(np.diag(CM) / np.sum(CM))) * 100
+        recall = (TP / (TP + FN)) * 100
+        precision = (TP / (TP + FP)) * 100
         f1 = (precision * recall) / (precision + recall)
 
-        print("Validation Accuracy(mean): %f %%" % (100 * accuracy))
+        print("==================================================")
+        print(f"Validation Accuracy(mean): {accuracy:.2f}%")
+        print(f"Recall : {recall:.2f}")
+        print(f"Precision: {precision:.2f}")
+        print(f"F1-Score: {f1:.2f}")
         print(f"Confusion Matirx : \n{CM}")
-        print(f"Recall : {recall * 100}")
-        print(f"Precision: {precision * 100}")
-        print(f"F1-Score: {f1 * 100}")
+        print("==================================================")
 
 
 if __name__ == "__main__":
@@ -221,9 +223,15 @@ if __name__ == "__main__":
 
     # Train for n epochs on the train and test data
     epochs = 200
+
+    if epochs >= 200:
+        verbose = False
+    else:
+        verbose = True
+
     for t in range(epochs):
         print(f"Epoch {t+1}\n-------------------------------")
-        train(train_dl, model, loss_fn, optimizer, device)
+        train(train_dl, model, loss_fn, optimizer, device, verbose=verbose)
         test(test_dl, model, loss_fn, device)
     print("Done Training!\n")
 
