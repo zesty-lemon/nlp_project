@@ -28,7 +28,7 @@ def greedy_parse(episode_lines: list[str]) -> list[str]:
     for line in episode_lines:
 
         # If line exists and has punctuation
-        if line and (line[-1] in punctuation):
+        if line and (line.strip()[-1] in punctuation):
 
             # Add it to the list of dialogs
             temp_line += line
@@ -57,7 +57,7 @@ def competent_parse(episode_lines: list[str]) -> list[str]:
 
         try:
 
-            current_line = line
+            current_line = line.strip()
             next_line = episode_lines[index + 1]
 
             # If line exists, isn't followed immediately by another line, and has punctuation
@@ -113,9 +113,10 @@ def giles_parse(episode_lines: list[str]) -> list[str]:
 
 def main():
 
-    file_name = "young_sheldon_s4_e16.txt"
+    # file_name = "young_sheldon_s4_e16"
+    file_name = "honeymooners_s1_e37"
     dir_path = Path("data/subtitles/")
-    file_path = dir_path / file_name
+    file_path = dir_path / f"{file_name}.txt"
 
     with open(file_path, "r", encoding="utf-8") as subtitles:
 
@@ -127,20 +128,20 @@ def main():
 
         # Uncomment depending on what option we want =====================
 
-        # dialog_lines = greedy_parse(episode_lines)
-        dialog_lines = competent_parse(episode_lines)
+        greedy_lines = greedy_parse(episode_lines)
+        competent_lines = competent_parse(episode_lines)
         # dialog_lines = giles_parse(episode_lines)
 
         # ================================================================
 
-        # Print first five lines to confirm
-        print(dialog_lines[:5])
+        # Print first lines to compare
+        print(f"1st: {greedy_lines[:3]}")
+        print(f"2nd: {competent_lines[:3]}")
 
-        processed_episode = "\n".join(dialog_lines)
+        processed_episode = "\n".join(competent_lines)
 
-        with open(
-            "data/subtitles/young_sheldon_s4_e16_cleaned.txt", "w", encoding="utf-8"
-        ) as file:
+        output_path = dir_path / f"{file_name}_cleaned.txt"
+        with open(output_path, "w", encoding="utf-8") as file:
             file.write(processed_episode)
 
         print("Done Processing")
