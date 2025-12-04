@@ -1,22 +1,27 @@
 from pathlib import Path
+import torch
+from torch_model import NN, pred_dialog
 import use_trained_random_forest_model as random_forest
-
-# File to preprocess our data
-DIALOG_TURNS = 5
 
 
 def main():
 
     print("Starting:")
 
-    # Get cleaned dialogs
+    model_name = "pytorch"
+
+    if model_name == "pytorch":
+        model_path = Path("trained_models/pytorch_model/trained_weights.pt")
+        model = NN()
+        model.load_state_dict(torch.load(model_path, weights_only=True))
+        model.eval()
 
     # file_name = "young_sheldon_s4_e16_cleaned"
-    file_name = "honeymooners_s1_e37_cleaned"
-    dir_path = Path("data/subtitles/")
-    file_path = dir_path / f"{file_name}.txt"
+    script_name = "honeymooners_s1_e37_cleaned"
+    data_path = Path("data/subtitles/")
+    script_path = data_path / f"{script_name}.txt"
 
-    with open(file_path, "r", encoding="utf-8") as script:
+    with open(script_path, "r", encoding="utf-8") as script:
 
         lines = script.read()
         lines = lines.splitlines()
@@ -38,9 +43,14 @@ def main():
                 dialog_list = dialog_list[1:]
 
                 # Pass dialog_str to processing function
-                humorous = random_forest.predict_humour_of_text(
-                    use_bert=True, input_text=dialog_str
-                )
+
+                match model_name:
+                    case "random_forest":
+                        humorous = random_forest.predict_humour_of_text(
+                            use_bert=True, input_text=dialog_str
+                        )
+                    case "pytorch":
+                        humorous = pred_dialog(model, dialog_str)
 
                 if humorous == True:
                     output_script.append("\n[HILARIOUS AUDIENCE LAUGHTER]\n")
@@ -50,8 +60,8 @@ def main():
 
     finalized_script = "\n".join(output_script)
 
-    output_path = dir_path / f"{file_name}_funny.txt"
-    with open(output_path, "w", encoding="utf-8") as file:
+    script_output_path = data_path / f"{script_name}_funny.txt"
+    with open(script_output_path, "w", encoding="utf-8") as file:
         file.write(finalized_script)
 
     print("Done Writing File.")
