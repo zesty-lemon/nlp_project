@@ -45,7 +45,12 @@ def pick_bert_model_classifier(path_to_model: str):
 
 
 # Switch the embeddings used (BERT or S-BERT by specifying different model path)
-def predict_humour_of_text(model_path: str, input_text: str) -> bool:
+def predict_humour_of_text(use_bert: bool, input_text: str) -> bool:
+    if use_bert:
+        model_path = path_to_bert_model
+    else:
+        model_path = path_to_s_bert_model
+
     # Step 1: Get the Classifier
     classifier = pick_bert_model_classifier(model_path)
 
