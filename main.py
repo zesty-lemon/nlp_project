@@ -1,32 +1,54 @@
 import corpus_utils as c_u
+from pathlib import Path
 import constants as c
 import pandas as pd
 import numpy as np
+from use_trained_random_forest_model import predict_humour_of_text
 
 # File to preprocess our data
 DIALOG_TURNS = 5
 
+
 def main():
-    all_dialogs = []
-    # Iterate through all 5 seasons
-    for season in range(1, 6):
 
-        all_episode_filepaths = c_u.get_episodes_for_dt_and_season(dialog_turns=DIALOG_TURNS, season_num=season)
+    # Get cleaned dialogs
 
-        for episode_filepath in all_episode_filepaths:
-            # open filepath to episode as Json object (dictionary)
-            episode_dialogs = c_u.open_file_as_json(episode_filepath)
-            # pull all dialogs out from the episode, stored as a dataframe. Dialog is all turns added together
-            df_dialogs = c_u.get_all_dialogs_from_episode_df(episode_dialogs)
-            all_dialogs.append(df_dialogs)
-            # sanity check to see correct number of dialogs per episode
-            print("Dialogs per episode:")
-            print(f"{episode_filepath}: {len(df_dialogs)} dialogs")
+    # file_name = "young_sheldon_s4_e16"
+    file_name = "honeymooners_s1_e37"
+    dir_path = Path("data/subtitles/")
+    file_path = dir_path / f"{file_name}.txt"
 
-    df_all_dialogs = (pd.concat(all_dialogs, ignore_index=True))
-    print(df_all_dialogs.head())
+    with open(file_path, "r", encoding="utf-8") as script:
+
+        lines = script.read()
+        lines = lines.splitlines()
+
+        dialog_list = []
+        output_script = []
+        for line in lines:
+
+            dialog_list.append(line)
+            output_script.append(line)
+
+            # If we have a fully formed dialog
+            if len(dialog_list) == 5:
+
+                # Concat all lines with seperator
+                dialog_str = " <s>".join(dialog_list)
+
+                # Remove first and oldest entry
+                dialog_list = dialog_list[1:]
+
+                # Pass dialog_str to processing function
+                humorous = predict_humour_of_text(dialog_str)
+
+                if humorous == True:
+                    output_script.append("\n[HILARIOUS AUDIENCE LAUGHTER]\n")
+
+                elif humorous == False:
+                    output_script.append("\n")
 
 
 if __name__ == "__main__":
-    print('Starting:')
+    print("Starting:")
     main()
