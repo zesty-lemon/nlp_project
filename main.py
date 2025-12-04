@@ -1,9 +1,5 @@
-import corpus_utils as c_u
 from pathlib import Path
-import constants as c
-import pandas as pd
-import numpy as np
-from use_trained_random_forest_model import predict_humour_of_text
+import use_trained_random_forest_model as random_forest
 
 # File to preprocess our data
 DIALOG_TURNS = 5
@@ -11,10 +7,12 @@ DIALOG_TURNS = 5
 
 def main():
 
+    print("Starting:")
+
     # Get cleaned dialogs
 
-    # file_name = "young_sheldon_s4_e16"
-    file_name = "honeymooners_s1_e37"
+    # file_name = "young_sheldon_s4_e16_cleaned"
+    file_name = "honeymooners_s1_e37_cleaned"
     dir_path = Path("data/subtitles/")
     file_path = dir_path / f"{file_name}.txt"
 
@@ -40,7 +38,9 @@ def main():
                 dialog_list = dialog_list[1:]
 
                 # Pass dialog_str to processing function
-                humorous = predict_humour_of_text(dialog_str)
+                humorous = random_forest.predict_humour_of_text(
+                    use_bert=True, input_text=dialog_str
+                )
 
                 if humorous == True:
                     output_script.append("\n[HILARIOUS AUDIENCE LAUGHTER]\n")
@@ -48,7 +48,14 @@ def main():
                 elif humorous == False:
                     output_script.append("\n")
 
+    finalized_script = "\n".join(output_script)
+
+    output_path = dir_path / f"{file_name}_funny.txt"
+    with open(output_path, "w", encoding="utf-8") as file:
+        file.write(finalized_script)
+
+    print("Done Writing File.")
+
 
 if __name__ == "__main__":
-    print("Starting:")
     main()
