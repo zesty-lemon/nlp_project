@@ -3,6 +3,7 @@ import os
 from torch import nn
 from torch.utils.data import random_split, DataLoader
 from torchsummary import summary
+import word_embeddings
 import pandas as pd
 import numpy as np
 from constants import BERT_MODEL, BATCH_SIZE, RANDOM_SEED
@@ -205,6 +206,22 @@ def evaluate(data_loader, model, device):
         print("==================================================")
 
 
+def pred_dialog(model: NN, dialog: str):
+
+    # Might need to make this into a tensor
+    embedding = word_embeddings.perform_classic_bert_embedding([dialog])
+    tensor_embedding = torch.tensor(embedding, dtype=torch.float32)
+    output = model(tensor_embedding)
+    prediction = torch.squeeze(output).round()
+
+    if prediction == 1:
+        humor = True
+    elif prediction == 0:
+        humor = False
+
+    return humor
+
+
 if __name__ == "__main__":
 
     debug = False
@@ -222,7 +239,7 @@ if __name__ == "__main__":
     optimizer = torch.optim.SGD(model.parameters(), lr=1e-3)
 
     # Train for n epochs on the train and test data
-    epochs = 200
+    epochs = 20
 
     if epochs >= 200:
         verbose = False
@@ -237,3 +254,6 @@ if __name__ == "__main__":
 
     # Check final validation accuracy on validation data
     evaluate(validation_dl, model, device)
+
+    save_dir = "trained_models/pytorch_model/trained_weights.pt"
+    torch.save(model.state_dict(), save_dir)
