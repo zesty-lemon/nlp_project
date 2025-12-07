@@ -115,6 +115,31 @@ class NN(nn.Module):
         return x
 
 
+# Create the model
+class SBERT_NN(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.layer1 = nn.Sequential(nn.Linear(384, 512), nn.ReLU())
+        self.layer2 = nn.Sequential(nn.Linear(512, 256), nn.ReLU())
+        self.layer3 = nn.Sequential(nn.Linear(256, 128), nn.ReLU())
+        self.flatten = nn.Flatten()
+        self.layer4 = nn.Sequential(nn.Linear(128, 1))
+        self.flatten2 = nn.Flatten()
+        self.softmax = nn.Sigmoid()
+
+    def forward(self, x):
+        x = self.layer1(x)
+        x = self.layer2(x)
+        x = self.layer3(x)
+        x = self.flatten(x)
+        x = self.layer4(x)
+        x = self.flatten2(x)
+        x = self.softmax(x)
+
+        # Return confidence
+        return x
+
+
 # Training function for the model
 def train(dataloader, model, loss_fn, optimizer, device, verbose=True):
     size = len(dataloader.dataset)
@@ -232,14 +257,16 @@ if __name__ == "__main__":
     version = BERT_MODEL.BERT
     train_dl, test_dl, validation_dl = load_split_data(version, verbose=debug)
 
-    model = NN().to(device)
-    # print(f"Model summary : \n{summary(model, (64, 768))}")
+    if version is BERT_MODEL.BERT:
+        model = NN().to(device)
+    elif version is BERT_MODEL.S_BERT:
+        model = SBERT_NN().to(device)
 
     loss_fn = nn.BCELoss()
     optimizer = torch.optim.SGD(model.parameters(), lr=1e-3)
 
     # Train for n epochs on the train and test data
-    epochs = 20
+    epochs = 50
 
     if epochs >= 200:
         verbose = False
