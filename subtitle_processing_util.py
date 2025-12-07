@@ -87,9 +87,10 @@ def competent_parse(episode_lines: list[str]) -> list[str]:
 def main():
 
     # file_name = "young_sheldon_s4_e16"
-    file_name = "honeymooners_s1_e37"
+    # file_name = "honeymooners_s1_e37"
+    file_name = "The_Big_Bang_Theory_S10_E13"
     dir_path = Path("data/subtitles/")
-    file_path = dir_path / f"{file_name}.txt"
+    file_path = dir_path / f"{file_name}.srt"
 
     with open(file_path, "r", encoding="utf-8") as subtitles:
 
