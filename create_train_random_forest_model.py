@@ -71,6 +71,8 @@ def read_features(model_selection: BERT_MODEL) -> Tuple[np.ndarray, np.ndarray]:
 
 
 # Train and test a random forest model with a simple test/training split
+# Quick & Dirty compared to random parameter sweep
+# Use to quickly test new configurations/classification report changes
 def train_randomforest(Xtrain: np.ndarray,
                        ytrain: np.ndarray,
                        Xtest: np.ndarray,
@@ -386,8 +388,7 @@ def create_new_trained_models(run_k_fold_validation: bool,
                               run_new_simple_rf_classifier: bool,
                               run_random_param_search: bool,
                               use_smote: bool,
-                              model_selection: BERT_MODEL,
-                              split_dialog_by_episode: bool = True):
+                              model_selection: BERT_MODEL):
 
     directory_to_save_models = (
             c.RANDOM_FOREST_TRAINED_MODEL_DIR_PREFIX + "sandbox/" + generate_run_dir_name(model_selection, use_smote)
@@ -398,16 +399,11 @@ def create_new_trained_models(run_k_fold_validation: bool,
     # Read features in from file
     X_features, y_labels = read_features(model_selection)
 
-    if split_dialog_by_episode:
-        Xtrain, Ytrain, Xtest, Ytest = corpus_loader.corpus_test_train_split_by_episode(test_size = 0.3,
-                                                                                        model_selection=model_selection)
-    else:
-        # Split into train/test
-        # ordered differently since this is the order train_test_split returns them
-        Xtrain, Xtest, Ytrain, Ytest = train_test_split(X_features,
-                                                        y_labels,
-                                                        test_size=0.3,
-                                                        stratify=y_labels)
+    # Split into train/test
+    Xtrain, Xtest, Ytrain, Ytest = train_test_split(X_features,
+                                                    y_labels,
+                                                    test_size=0.3,
+                                                    stratify=y_labels)
 
     # Perform k-fold validation random forest
     if run_k_fold_validation:
@@ -445,8 +441,7 @@ if __name__ == "__main__":
                               run_new_simple_rf_classifier=True,
                               run_random_param_search=True,
                               use_smote=True,
-                              model_selection=BERT_MODEL.S_BERT,
-                              split_dialog_by_episode=False)
+                              model_selection=BERT_MODEL.S_BERT)
 
 
     # Create trained model with Bert embeddings and SMOTE oversampling
@@ -454,5 +449,4 @@ if __name__ == "__main__":
                               run_new_simple_rf_classifier=True,
                               run_random_param_search=True,
                               use_smote=True,
-                              model_selection=BERT_MODEL.BERT,
-                              split_dialog_by_episode=False)
+                              model_selection=BERT_MODEL.BERT)
