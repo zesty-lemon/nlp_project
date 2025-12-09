@@ -208,6 +208,12 @@ def evaluate(data_loader, model, device):
         recall = (TP / (TP + FN)) * 100
         precision = (TP / (TP + FP)) * 100
         f1 = (precision * recall) / (precision + recall)
+        class_report = classification_report(all_labels,
+                                             all_preds,
+                                             labels=[0, 1],
+                                             target_names=["non_humor", "humor"],
+                                             digits=4,
+                                             )
 
         print("==================================================")
         print(f"Validation Accuracy(mean): {accuracy:.2f}%")
@@ -217,16 +223,8 @@ def evaluate(data_loader, model, device):
         print(f"Confusion Matirx : \n{CM}")
         print("==================================================")
 
-        print("Classification Report:")
-        print(
-            classification_report(
-                all_labels,
-                all_preds,
-                labels=[0, 1],
-                target_names=["non_humor", "humor"],
-                digits=4,
-            )
-        )
+        print(f"Classification Report: \n{class_report}")
+
 
 def pred_dialog(model: NN, dialog: str):
 
