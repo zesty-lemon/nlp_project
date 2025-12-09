@@ -11,3 +11,8 @@ tqdm
 pyqt5
 datetime
 imblearn
+imbalanced-learn
+sentence-transformers
+joblib
+scipy
+tf-keras

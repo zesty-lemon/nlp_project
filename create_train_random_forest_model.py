@@ -5,6 +5,10 @@ from sklearn.base import BaseEstimator
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
 
+from imblearn.pipeline import Pipeline as ImbPipeline
+
+import corpus_loader
+
 import constants as c
 from typing import Dict, Tuple
 import numpy as np
@@ -12,6 +16,7 @@ from matplotlib import pyplot as plt
 from scipy.stats import randint
 import joblib
 from imblearn.over_sampling import SMOTE
+
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.pipeline import Pipeline
 from sklearn.model_selection import train_test_split, StratifiedKFold, cross_val_score, RandomizedSearchCV
@@ -29,6 +34,9 @@ import word_embeddings
 
 from constants import BERT_MODEL
 
+from sklearn.metrics import f1_score, make_scorer
+
+f1_macro_scorer = make_scorer(f1_score, average="macro")
 
 # Get unique name for bert_embeddings directory
 def generate_run_dir_name(model_selection: BERT_MODEL, use_smote:bool) -> str:
@@ -49,10 +57,7 @@ def generate_run_dir_name(model_selection: BERT_MODEL, use_smote:bool) -> str:
 # Read features in from file
 # split into features and labels
 def read_features(model_selection: BERT_MODEL) -> Tuple[np.ndarray, np.ndarray]:
-    X_features = [] # joined array of all features for all desired classes together
-    y_labels = [] # labels of features for all desired classes together
     # for each class, read its values into X_features and its labels into y_labels
-
     df_labels_embeddings = word_embeddings.get_embeddings_and_labels_for_model(model_selection = model_selection,
                                                                                use_cached_embeddings=True)
 
@@ -66,14 +71,20 @@ def read_features(model_selection: BERT_MODEL) -> Tuple[np.ndarray, np.ndarray]:
 
 
 # Train and test a random forest model with a simple test/training split
-def train_randomforest(X_features: np.ndarray,
-                       y_labels: np.ndarray,
+# Quick & Dirty compared to random parameter sweep
+# Use to quickly test new configurations/classification report changes
+def train_randomforest(Xtrain: np.ndarray,
+                       ytrain: np.ndarray,
+                       Xtest: np.ndarray,
+                       ytest: np.ndarray,
                        classes: Dict[int, str],
                        model_selection: BERT_MODEL,
-                       use_smote: bool,
                        random_state: int = 42,
-                       test_size=0.3,
                        report_directory: str = None) -> RandomForestClassifier:
+
+
+    sm = SMOTE(random_state=42)
+    Xtrain, ytrain = sm.fit_resample(Xtrain, ytrain)
 
     print("---- BEGIN Training Random Forest Classifier ---")
     clf = RandomForestClassifier(n_estimators=500,
@@ -87,17 +98,6 @@ def train_randomforest(X_features: np.ndarray,
                                  random_state=random_state
                                  )
 
-    Xtrain, Xtest, ytrain, ytest = train_test_split(X_features,
-                                                    y_labels,
-                                                    test_size=test_size,
-                                                    stratify=y_labels,
-                                                    random_state=random_state)
-
-    # Optionally enable SMOTE oversampling
-    if use_smote:
-        sm = SMOTE(random_state=42)
-        Xtrain, ytrain = sm.fit_resample(Xtrain, ytrain)
-
     # Train the model
     clf.fit(Xtrain, ytrain)
 
@@ -105,14 +105,14 @@ def train_randomforest(X_features: np.ndarray,
     full_output_dir = os.path.join(report_directory, "manually_instantiated_model")
     os.makedirs(full_output_dir, exist_ok=True)
     generate_model_analysis_report(Xtrain,
-                                   Xtest,
                                    ytrain,
+                                   Xtest,
                                    ytest,
                                    clf,
                                    full_output_dir,
                                    classes,
-                                   model_selection = model_selection,
-                                   use_smote=use_smote)
+                                   model_selection=model_selection
+                                   )
 
     # Save the trained model to file
     joblib.dump(clf, f'{full_output_dir}/random_forest_model.joblib')
@@ -166,151 +166,58 @@ def perform_k_fold_randomforest(X_features: np.ndarray,
 
 # run a random hyperparameter search for random forest
 # return the model with the best accuracy AND save a report
-# set use_dummy_model_configs to true when debugging, it will run very simplified random search (faster)
 def run_random_param_search(X_train: np.ndarray,
-                            y_train: np.ndarray,
-                            directory: str,
-                            use_smote: bool,
-                            use_dummy_model_configs: bool = False) -> RandomForestClassifier:
-    # define the estimator
-    rf_classifier = RandomForestClassifier(random_state=42,
-                                           class_weight="balanced")
+                            y_train: np.ndarray) -> RandomForestClassifier:
+    # Define the estimator
+    rf_classifier = RandomForestClassifier() #    class_weight = {0: 1.0, 1: 5.0}
 
-    # Larger ssearch space but much slower
-    # # define the parameter distributions
+    # Define SMOTE inside of pipeline to use inside the model itself
+    pipeline = ImbPipeline([
+        ("smote", SMOTE()),
+        ("rf", rf_classifier),
+    ])
+
+    # Params stat with rf__ to indicate they apply to random forest and not smote
     param_distributions = {
-        "n_estimators": randint(100, 400),
-        "max_depth": [None] + list(range(10, 61, 10)),  # none = unlimited
-        "min_samples_split": randint(2, 20),
-        "min_samples_leaf": randint(1, 10),
-        "max_features": ['sqrt', 'log2', None],
-        "bootstrap": [True, False],
-        "criterion": ["gini", "entropy", "log_loss"],
+        "rf__n_estimators": randint(200, 400),
+        "rf__max_depth": list(range(5, 41, 5)),
+        "rf__min_samples_split": randint(2, 20),
+        "rf__min_samples_leaf": randint(1, 10),
+        "rf__max_features": ['sqrt', 'log2'],
+        "rf__bootstrap": [True, False],
+        "rf__criterion": ["gini"],
+        "rf__class_weight": [None, "balanced", "balanced_subsample"]
     }
 
-    # define the parameter distributions
-    param_distributions = {
-        "n_estimators": randint(200, 400),
-        "max_depth": list(range(10, 61, 10)),  # none = unlimited
-        "min_samples_split": randint(2, 20),
-        "min_samples_leaf": randint(1, 10),
-        "max_features": ['sqrt', 'log2'],
-        "bootstrap": [False],
-        "criterion": ["gini"],
-    }
-
-    # create the RandomizedSearchCV object
+    # Create the RandomizedSearchCV object
     random_search = RandomizedSearchCV(
-        estimator=rf_classifier,
+        estimator=pipeline,
         param_distributions=param_distributions,
         n_iter=40,
-        cv=5,
-        scoring='accuracy',
-        random_state=36,
+        cv=StratifiedKFold(n_splits=5, shuffle=True, random_state=36),
+        scoring=f1_macro_scorer,
         n_jobs=-1,
         verbose=2,
-        return_train_score = True
+        return_train_score=True,
     )
-
-    # The random search takes a very singnificant amount of time
-    # these values will let it run in ~1-2 mins instead of ~2 hours
-    # useful for debugging
-    if use_dummy_model_configs:
-        rf_classifier = RandomForestClassifier(
-            random_state=42,
-            class_weight="balanced",
-            n_estimators=10,
-            max_depth=5
-        )
-
-        # Smaller search space
-        param_distributions = {
-            "n_estimators": randint(5, 15),
-            "max_depth": [None, 5, 10],
-            "min_samples_split": randint(2, 5),
-            "min_samples_leaf": randint(1, 3),
-            "max_features": ['sqrt'],
-            "bootstrap": [True],
-            "criterion": ["gini"],
-        }
-
-        random_search = RandomizedSearchCV(
-            estimator=rf_classifier,
-            param_distributions=param_distributions,
-            n_iter=2,
-            cv=2,
-            scoring='accuracy',
-            random_state=36,
-            n_jobs=1,
-            verbose=1,
-            return_train_score = True)
-
-    if use_smote:
-        sm = SMOTE(random_state=42)
-        X_train, y_train = sm.fit_resample(X_train, y_train)
 
     # Run the search
     random_search.fit(X_train, y_train)
 
-    # Access the best parameters and best score
-    best_params = random_search.best_params_
-    best_score = random_search.best_score_
-
-    # ---- Generate & Save Report to Directory ----
-    os.makedirs(directory, exist_ok=True)
-    report_path = os.path.join(directory, "random_forest_random_search_report.txt")
-    # Get Results from Random Forest Searc
-    cv_results = random_search.cv_results_
-    # Scores on Test data
-    mean_test_scores = cv_results["mean_test_score"]
-    std_test_scores = cv_results["std_test_score"]
-    # Scores on Train data
-    mean_train_scores = cv_results["mean_train_score"]
-    std_train_scores = cv_results["std_train_score"]
-    # All Model Params
-    params_list = cv_results["params"]
-    # Sort configurations from best to worst
-    sorted_indices = np.argsort(mean_test_scores)[::-1]
-    # Generate & Save Final Report
-    with open(report_path, "w", encoding="utf-8") as f:
-        f.write("Random Forest RandomizedSearchCV Report\n")
-        f.write("======================================\n\n")
-
-        f.write("Best configuration\n")
-        f.write("------------------\n")
-        for k, v in best_params.items():
-            f.write(f"{k}: {v}\n")
-        f.write(f"\nBest mean CV accuracy: {best_score:.4f}\n\n")
-
-        f.write("Search space\n")
-        f.write("-----------\n")
-        f.write(str(param_distributions) + "\n\n")
-
-        f.write("All tried configurations (sorted by mean accuracy)\n")
-        f.write("-------------------------------------------------\n")
-        for rank, idx in enumerate(sorted_indices, start=1):
-            f.write(f"Rank {rank}\n")
-            f.write(f"  mean_train_accuracy: {mean_train_scores[idx]:.4f}\n")
-            f.write(f"  std_train_accuracy:  {std_train_scores[idx]:.4f}\n")
-            f.write(f"  mean_test_accuracy:  {mean_test_scores[idx]:.4f}\n")
-            f.write(f"  std_test_accuracy:   {std_test_scores[idx]:.4f}\n")
-            f.write(f"  params:              {params_list[idx]}\n\n")
-
-    print(f"Saved random search report to: {report_path}")
+    # Return the best model
     return random_search.best_estimator_
 
 
 # Generate & Save a report about a fitted classifier
-# Statics such as test/train accuracy & ROC curve
+# Statistics such as test/train accuracy & ROC curve
 def generate_model_analysis_report(Xtrain: np.ndarray,
-                                   Xtest: np.ndarray,
                                    ytrain: np.ndarray,
+                                   Xtest: np.ndarray,
                                    ytest: np.ndarray,
-                                   already_fitted_clf: BaseEstimator, # ignore "unresolved attribute for class BaseEstimator" warnings
+                                   already_fitted_clf: RandomForestClassifier, # ignore "unresolved attribute for class BaseEstimator" warnings
                                    directory: str,
                                    classes: Dict[int, str],
-                                   model_selection: BERT_MODEL,
-                                   use_smote: bool):
+                                   model_selection: BERT_MODEL):
     # ---- Generate & Save ROC Chart to Directory ----
     # Get ROC/AUC and Plot It
     # Find the numeric label for “humour”
@@ -366,7 +273,8 @@ def generate_model_analysis_report(Xtrain: np.ndarray,
 
     # Note: Since we are proportionally balance classes between test & training we can use either one here
     plt.annotate(
-        f"Humor Class Prevalence: {test_non_humour_class_percent}%\nNon-Humor Class Prevalence: {test_humour_class_percent}%",
+        f"Humor Class Prevalence: {test_humour_class_percent}%\n"
+        f"Non-Humor Class Prevalence: {test_non_humour_class_percent}%",
         xy=(0.5, -0.20),
         xycoords="axes fraction",
         ha="center",
@@ -424,7 +332,6 @@ def generate_model_analysis_report(Xtrain: np.ndarray,
         f.write("----- Random Forest Model Report -----\n")
         f.write("======================================\n\n")
         f.write(f"Embedding Used: {model_selection.name}\n")
-        f.write(f"SMOTE Oversampling Used: {use_smote}\n")
 
         f.write("--------- Performance Metrics --------\n")
         f.write(f"Training accuracy: {train_acc:.4f}\n")
@@ -439,28 +346,14 @@ def generate_model_analysis_report(Xtrain: np.ndarray,
         f.write(f"Test Set Instances of Non-Humor Class: {test_non_humour_class_count} ({test_non_humour_class_percent})\n")
 
 # run random search and save best result to file
-def perform_random_param_search(X_features: np.ndarray,
-                                y_labels: np.ndarray,
+def perform_random_param_search(Xtrain: np.ndarray,
+                                ytrain: np.ndarray,
+                                Xtest: np.ndarray,
+                                ytest: np.ndarray,
                                 model_selection: BERT_MODEL,
                                 directory: str,
-                                use_smote: bool,
-                                classes: Dict[int, str],
-                                use_dummy_model_configs: bool = False) -> RandomForestClassifier:
+                                classes: Dict[int, str]) -> RandomForestClassifier:
     print("----- BEGIN Randomized Search CV -----")
-
-    # Split into Test/Train sets
-    Xtrain, Xtest, ytrain, ytest = train_test_split(
-        X_features,
-        y_labels,
-        test_size=0.3,
-        stratify=y_labels,  # classes are unbalanced this keeps proportions (prevents a split from having 0 of a class)
-        random_state=42,
-    )
-
-    # Optionally enable SMOTE oversampling
-    if use_smote:
-        sm = SMOTE(random_state=42)
-        Xtrain, ytrain = sm.fit_resample(Xtrain, ytrain)
 
     # Make the bert_embeddings directory to store model & report
     output_dir = directory + "/random_search_model/"
@@ -468,97 +361,34 @@ def perform_random_param_search(X_features: np.ndarray,
 
     # Run random search for best configuration of parameters
     clf = run_random_param_search(Xtrain,
-                                  ytrain,
-                                  output_dir,
-                                  use_smote=use_smote,
-                                  use_dummy_model_configs=use_dummy_model_configs)
+                                  ytrain)
 
     # Save best model to file
     joblib.dump(clf, f'{output_dir}/random_forest_model.joblib')
 
     # Generate Report about our best model found with Random Search
     os.makedirs(output_dir, exist_ok=True)
+
+    # Generate report on model performance
     generate_model_analysis_report(Xtrain,
-                                   Xtest,
                                    ytrain,
+                                   Xtest,
                                    ytest,
                                    clf,
                                    output_dir,
                                    classes,
-                                   model_selection,
-                                   use_smote=use_smote)
+                                   model_selection=model_selection)
 
     print("----- END Randomized Search CV -----")
     return clf
-
-
-# Train and Evaluate a Logistic Regression Classifier
-def train_logistic_regression(X_features: np.ndarray,
-                              y_labels: np.ndarray,
-                              classes: Dict[int, str],
-                              report_directory: str,
-                              model_selection: BERT_MODEL,
-                              use_smote: bool,
-                              random_state: int = 42,
-                              test_size: float = 0.3) -> Pipeline:
-    print("----- BEGIN Logistic Regression -----")
-
-    # Split into train/test
-    Xtrain, Xtest, ytrain, ytest = train_test_split(
-        X_features,
-        y_labels,
-        test_size=test_size,
-        stratify=y_labels,
-        random_state=random_state,
-    )
-
-    # Optionally enable SMOTE oversampling
-    if use_smote:
-        sm = SMOTE(random_state=42)
-        Xtrain, ytrain = sm.fit_resample(Xtrain, ytrain)
-
-    # Build pipeline
-    logreg_pipeline = Pipeline(
-        steps=[
-            ("scaler", StandardScaler()),
-            ("clf", LogisticRegression(
-                max_iter=1000,
-                multi_class="auto",
-                random_state=random_state,
-            )),
-        ]
-    )
-
-    # Train model
-    logreg_pipeline.fit(Xtrain, ytrain)
-
-    # Directory for reports
-    full_output_dir = os.path.join(report_directory, "logistic_regression_model")
-    os.makedirs(full_output_dir, exist_ok=True)
-
-    # Generate Report
-    generate_model_analysis_report(Xtrain,
-                                   Xtest,
-                                   ytrain,
-                                   ytest,
-                                   already_fitted_clf=logreg_pipeline,
-                                   directory=full_output_dir,
-                                   use_smote=use_smote,
-                                   classes=classes,
-                                   model_selection=model_selection)
-
-    print("----- END Logistic Regression -----")
-    return logreg_pipeline
 
 
 # Create & Save various Random Forest Models
 def create_new_trained_models(run_k_fold_validation: bool,
                               run_new_simple_rf_classifier: bool,
                               run_random_param_search: bool,
-                              run_logistic_regression: bool,
                               use_smote: bool,
-                              model_selection: BERT_MODEL,
-                              use_dummy_parameters: bool = False):
+                              model_selection: BERT_MODEL):
 
     directory_to_save_models = (
             c.RANDOM_FOREST_TRAINED_MODEL_DIR_PREFIX + "sandbox/" + generate_run_dir_name(model_selection, use_smote)
@@ -569,6 +399,12 @@ def create_new_trained_models(run_k_fold_validation: bool,
     # Read features in from file
     X_features, y_labels = read_features(model_selection)
 
+    # Split into train/test
+    Xtrain, Xtest, Ytrain, Ytest = train_test_split(X_features,
+                                                    y_labels,
+                                                    test_size=0.3,
+                                                    stratify=y_labels)
+
     # Perform k-fold validation random forest
     if run_k_fold_validation:
         perform_k_fold_randomforest(X_features,
@@ -578,66 +414,39 @@ def create_new_trained_models(run_k_fold_validation: bool,
 
     # Fit Random Forest Model
     if run_new_simple_rf_classifier:
-        clf = train_randomforest(X_features,
-                                 y_labels,
+        clf = train_randomforest(Xtrain,
+                                 Ytrain,
+                                 Xtest,
+                                 Ytest,
                                  model_selection = model_selection,
-                                 use_smote=use_smote,
                                  classes=c.CLASSES,
                                  report_directory=directory_to_save_models)
 
     # Perform Random Search
     if run_random_param_search:
-        perform_random_param_search(X_features,
-                                    y_labels,
-                                    model_selection = model_selection,
+        perform_random_param_search(Xtrain,
+                                    Ytrain,
+                                    Xtest,
+                                    Ytest,
+                                    model_selection=model_selection,
                                     directory=directory_to_save_models,
-                                    use_smote=use_smote,
-                                    classes=c.CLASSES,
-                                    use_dummy_model_configs=use_dummy_parameters)
+                                    classes=c.CLASSES)
 
 
-    # Perform Logistic Regression
-    if run_logistic_regression:
-        train_logistic_regression(X_features,
-                                  y_labels,
-                                  classes=c.CLASSES,
-                                  model_selection=model_selection,
-                                  use_smote=use_smote,
-                                  report_directory=directory_to_save_models)
 
 if __name__ == "__main__":
-    # trained model with BERT embeddings
-    create_new_trained_models(run_k_fold_validation=True,
-                              run_new_simple_rf_classifier=True,
-                              run_random_param_search=True,
-                              run_logistic_regression=True,
-                              use_smote=False,
-                              model_selection=BERT_MODEL.BERT,
-                              use_dummy_parameters=False)
-
-    # Create trained model with Sentence Bert embeddings
-    create_new_trained_models(run_k_fold_validation=True,
-                              run_new_simple_rf_classifier=True,
-                              run_random_param_search=True,
-                              run_logistic_regression=True,
-                              use_smote=False,
-                              model_selection=BERT_MODEL.S_BERT,
-                              use_dummy_parameters=False)
-
-    # trained model with BERT embeddings and SMOTE oversampling
-    create_new_trained_models(run_k_fold_validation=True,
-                              run_new_simple_rf_classifier=True,
-                              run_random_param_search=True,
-                              run_logistic_regression=True,
-                              use_smote=True,
-                              model_selection=BERT_MODEL.BERT,
-                              use_dummy_parameters=False)
 
     # Create trained model with Sentence Bert embeddings and SMOTE oversampling
     create_new_trained_models(run_k_fold_validation=True,
                               run_new_simple_rf_classifier=True,
                               run_random_param_search=True,
-                              run_logistic_regression=True,
                               use_smote=True,
-                              model_selection=BERT_MODEL.S_BERT,
-                              use_dummy_parameters=False)
+                              model_selection=BERT_MODEL.S_BERT)
+
+
+    # Create trained model with Bert embeddings and SMOTE oversampling
+    create_new_trained_models(run_k_fold_validation=True,
+                              run_new_simple_rf_classifier=True,
+                              run_random_param_search=True,
+                              use_smote=True,
+                              model_selection=BERT_MODEL.BERT)

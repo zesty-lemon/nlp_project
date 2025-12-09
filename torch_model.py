@@ -3,12 +3,13 @@ import os
 from torch import nn
 from torch.utils.data import random_split, DataLoader
 from torchsummary import summary
+import word_embeddings
 import pandas as pd
 import numpy as np
 from constants import BERT_MODEL, BATCH_SIZE, RANDOM_SEED
 from corpus_utils import get_everything
 from dialog_dataloader import DialogDataset
-from sklearn.metrics import confusion_matrix
+from sklearn.metrics import confusion_matrix, classification_report
 from imblearn.over_sampling import SMOTE
 
 
@@ -95,17 +96,43 @@ class NN(nn.Module):
         super().__init__()
         self.layer1 = nn.Sequential(nn.Linear(768, 512), nn.ReLU())
         self.layer2 = nn.Sequential(nn.Linear(512, 256), nn.ReLU())
-        self.layer2 = nn.Sequential(nn.Linear(512, 128), nn.ReLU())
+        self.layer3 = nn.Sequential(nn.Linear(256, 128), nn.ReLU())
         self.flatten = nn.Flatten()
-        self.layer3 = nn.Sequential(nn.Linear(128, 1))
+        self.layer4 = nn.Sequential(nn.Linear(128, 1))
         self.flatten2 = nn.Flatten()
         self.softmax = nn.Sigmoid()
 
     def forward(self, x):
         x = self.layer1(x)
         x = self.layer2(x)
-        x = self.flatten(x)
         x = self.layer3(x)
+        x = self.flatten(x)
+        x = self.layer4(x)
+        x = self.flatten2(x)
+        x = self.softmax(x)
+
+        # Return confidence
+        return x
+
+
+# Create the model
+class SBERT_NN(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.layer1 = nn.Sequential(nn.Linear(384, 512), nn.ReLU())
+        self.layer2 = nn.Sequential(nn.Linear(512, 256), nn.ReLU())
+        self.layer3 = nn.Sequential(nn.Linear(256, 128), nn.ReLU())
+        self.flatten = nn.Flatten()
+        self.layer4 = nn.Sequential(nn.Linear(128, 1))
+        self.flatten2 = nn.Flatten()
+        self.softmax = nn.Sigmoid()
+
+    def forward(self, x):
+        x = self.layer1(x)
+        x = self.layer2(x)
+        x = self.layer3(x)
+        x = self.flatten(x)
+        x = self.layer4(x)
         x = self.flatten2(x)
         x = self.softmax(x)
 
@@ -114,7 +141,7 @@ class NN(nn.Module):
 
 
 # Training function for the model
-def train(dataloader, model, loss_fn, optimizer, device):
+def train(dataloader, model, loss_fn, optimizer, device, verbose=True):
     size = len(dataloader.dataset)
     model.train()
     for batch, (x_features, y_labels) in enumerate(dataloader):
@@ -132,9 +159,12 @@ def train(dataloader, model, loss_fn, optimizer, device):
         # Reset the gradient
         optimizer.zero_grad()
 
-        if batch % 25 == 0:
+        if batch % 25 == 0 and verbose:
             loss, current = loss.item(), (batch + 1) * len(x_features)
             print(f"loss: {loss:>7f}  [{current:>5d}/{size:>5d}]")
+
+    loss, current = loss.item(), (batch + 1) * len(x_features)
+    print(f"loss: {loss:>7f}  [{current:>5d}/{size:>5d}]")
 
 
 # Testing function
@@ -164,10 +194,10 @@ def test(dataloader, model, loss_fn, device):
 # Validation function
 def evaluate(data_loader, model, device):
     model.eval()
-    humor_preds = 0
-    correct_predictions = 0
-    total_predictions = 0
     CM = 0
+
+    all_labels = []
+    all_preds = []
 
     with torch.no_grad():
         # loop through validation data points and pass them into the model
@@ -181,25 +211,60 @@ def evaluate(data_loader, model, device):
             if labels.numel() <= 1:
                 temp_label = [labels.cpu()]
                 temp_pred = [prediction.cpu().item()]
+
+                # Add predictions & labels to all predictions
+                all_labels.append(temp_label)
+                all_preds.append(temp_pred)
+
                 CM += confusion_matrix(temp_label, temp_pred, labels=[0, 1])
             else:
                 CM += confusion_matrix(labels.cpu(), prediction.cpu(), labels=[0, 1])
+
+                # Add predictions & labels to all predictions
+                all_labels.extend(labels.cpu().tolist())
+                all_preds.extend(prediction.cpu().tolist())
 
         TN = CM[0][0]
         TP = CM[1][1]
         FP = CM[0][1]
         FN = CM[1][0]
 
-        accuracy = np.sum(np.diag(CM) / np.sum(CM))
-        recall = TP / (TP + FN)
-        precision = TP / (TP + FP)
+        accuracy = (np.sum(np.diag(CM) / np.sum(CM))) * 100
+        recall = (TP / (TP + FN)) * 100
+        precision = (TP / (TP + FP)) * 100
         f1 = (precision * recall) / (precision + recall)
+        class_report = classification_report(all_labels,
+                                             all_preds,
+                                             labels=[0, 1],
+                                             target_names=["non_humor", "humor"],
+                                             digits=4,
+                                             )
 
-        print("Validation Accuracy(mean): %f %%" % (100 * accuracy))
+        print("==================================================")
+        print(f"Validation Accuracy(mean): {accuracy:.2f}%")
+        print(f"Recall : {recall:.2f}")
+        print(f"Precision: {precision:.2f}")
+        print(f"F1-Score: {f1:.2f}")
         print(f"Confusion Matirx : \n{CM}")
-        print(f"Recall : {recall * 100}")
-        print(f"Precision: {precision * 100}")
-        print(f"F1-Score: {f1 * 100}")
+        print("==================================================")
+
+        print(f"Classification Report: \n{class_report}")
+
+
+def pred_dialog(model: NN, dialog: str):
+
+    # Might need to make this into a tensor
+    embedding = word_embeddings.perform_classic_bert_embedding([dialog])
+    tensor_embedding = torch.tensor(embedding, dtype=torch.float32)
+    output = model(tensor_embedding)
+    prediction = torch.squeeze(output).round()
+
+    if prediction == 1:
+        humor = True
+    elif prediction == 0:
+        humor = False
+
+    return humor
 
 
 if __name__ == "__main__":
@@ -212,19 +277,30 @@ if __name__ == "__main__":
     version = BERT_MODEL.BERT
     train_dl, test_dl, validation_dl = load_split_data(version, verbose=debug)
 
-    model = NN().to(device)
-    # print(f"Model summary : \n{summary(model, (64, 768))}")
+    if version is BERT_MODEL.BERT:
+        model = NN().to(device)
+    elif version is BERT_MODEL.S_BERT:
+        model = SBERT_NN().to(device)
 
     loss_fn = nn.BCELoss()
     optimizer = torch.optim.SGD(model.parameters(), lr=1e-3)
 
     # Train for n epochs on the train and test data
-    epochs = 200
+    epochs = 50
+
+    if epochs >= 200:
+        verbose = False
+    else:
+        verbose = True
+
     for t in range(epochs):
         print(f"Epoch {t+1}\n-------------------------------")
-        train(train_dl, model, loss_fn, optimizer, device)
+        train(train_dl, model, loss_fn, optimizer, device, verbose=verbose)
         test(test_dl, model, loss_fn, device)
     print("Done Training!\n")
 
     # Check final validation accuracy on validation data
     evaluate(validation_dl, model, device)
+
+    save_dir = "trained_models/pytorch_model/trained_weights.pt"
+    torch.save(model.state_dict(), save_dir)
