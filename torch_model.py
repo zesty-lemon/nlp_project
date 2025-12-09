@@ -9,7 +9,7 @@ import numpy as np
 from constants import BERT_MODEL, BATCH_SIZE, RANDOM_SEED
 from corpus_utils import get_everything
 from dialog_dataloader import DialogDataset
-from sklearn.metrics import confusion_matrix
+from sklearn.metrics import confusion_matrix, classification_report
 from imblearn.over_sampling import SMOTE
 
 
@@ -196,6 +196,9 @@ def evaluate(data_loader, model, device):
     model.eval()
     CM = 0
 
+    all_labels = []
+    all_preds = []
+
     with torch.no_grad():
         # loop through validation data points and pass them into the model
         for inputs, labels in data_loader:
@@ -208,9 +211,18 @@ def evaluate(data_loader, model, device):
             if labels.numel() <= 1:
                 temp_label = [labels.cpu()]
                 temp_pred = [prediction.cpu().item()]
+
+                # Add predictions & labels to all predictions
+                all_labels.append(temp_label)
+                all_preds.append(temp_pred)
+
                 CM += confusion_matrix(temp_label, temp_pred, labels=[0, 1])
             else:
                 CM += confusion_matrix(labels.cpu(), prediction.cpu(), labels=[0, 1])
+
+                # Add predictions & labels to all predictions
+                all_labels.extend(labels.cpu().tolist())
+                all_preds.extend(prediction.cpu().tolist())
 
         TN = CM[0][0]
         TP = CM[1][1]
@@ -221,6 +233,12 @@ def evaluate(data_loader, model, device):
         recall = (TP / (TP + FN)) * 100
         precision = (TP / (TP + FP)) * 100
         f1 = (precision * recall) / (precision + recall)
+        class_report = classification_report(all_labels,
+                                             all_preds,
+                                             labels=[0, 1],
+                                             target_names=["non_humor", "humor"],
+                                             digits=4,
+                                             )
 
         print("==================================================")
         print(f"Validation Accuracy(mean): {accuracy:.2f}%")
@@ -229,6 +247,8 @@ def evaluate(data_loader, model, device):
         print(f"F1-Score: {f1:.2f}")
         print(f"Confusion Matirx : \n{CM}")
         print("==================================================")
+
+        print(f"Classification Report: \n{class_report}")
 
 
 def pred_dialog(model: NN, dialog: str):
